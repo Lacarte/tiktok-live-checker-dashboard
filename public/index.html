@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TikTok Live Analytics</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <span>📊</span> TikTokAnalytics
+    </div>
+    <nav class="nav-links">
+      <div class="nav-item active">Dashboard</div>
+      <div class="nav-item">Settings</div>
+    </nav>
+    <button id="refresh" class="primary-btn">Refresh Data</button>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+
+    <div class="header">
+      <h2>Dashboard</h2>
+      <div class="controls">
+        <label>Timeframe:</label>
+        <select id="timeframeSelect" style="padding:0.5rem; border-radius:0.5rem; border:1px solid #cbd5e1;">
+          <option value="all">All Time</option>
+          <option value="day" selected>Daily</option>
+          <option value="week">Weekly</option>
+          <option value="month">Monthly</option>
+        </select>
+        <input type="date" id="datePicker" class="date-picker">
+      </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <section class="kpi-grid">
+      <div class="card">
+        <span class="kpi-title">Avg Daily Conn.</span>
+        <span class="kpi-value" id="kpi-daily-avg">-</span>
+      </div>
+      <div class="card">
+        <span class="kpi-title">Active Users</span>
+        <span class="kpi-value" id="kpi-active-users">-</span>
+      </div>
+      <div class="card">
+        <span class="kpi-title">Most Connected</span>
+        <span class="kpi-value" id="kpi-max-user" style="font-size:1.1rem; color:#16a34a;">-</span>
+        <span class="kpi-sub" id="kpi-max-time" style="font-size:0.8rem; color:#64748b;">0m</span>
+      </div>
+      <div class="card">
+        <span class="kpi-title">Least Connected</span>
+        <span class="kpi-value" id="kpi-min-user" style="font-size:1.1rem; color:#dc2626;">-</span>
+        <span class="kpi-sub" id="kpi-min-time" style="font-size:0.8rem; color:#64748b;">0m</span>
+      </div>
+    </section>
+
+    <!-- Daily Stats Panel (Hidden by default or empty) -->
+    <section class="card" id="dailyPanel" style="display:none;">
+      <div class="section-title">📅 Stats for <span id="selectedDateLabel"></span></div>
+      <div id="dailyStatsContent">Select a date to see daily breakdown.</div>
+      <table id="dailyTable">
+        <thead>
+          <tr>
+            <th>Streamer</th>
+            <th>Time (Min)</th>
+            <th>Sessions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- Charts Section -->
+    <section class="chart-container">
+      <canvas id="topChart"></canvas>
+    </section>
+
+    <!-- Detailed List -->
+    <section class="table-container">
+      <div style="padding: 1rem; font-weight: bold; border-bottom: 1px solid #e2e8f0;">All Time Rankings</div>
+      <table>
+        <thead style="cursor: pointer; user-select: none;">
+          <tr>
+            <th id="sort-rank">Rank</th>
+            <th id="sort-nickname">Nickname ↕</th>
+            <th id="sort-minutes">Minutes Connected ↕</th>
+            <th id="sort-sessions">Sessions ↕</th>
+            <th id="sort-score">Score ↕</th>
+          </tr>
+        </thead>
+        <tbody id="rankingBody"></tbody>
+      </table>
+    </section>
+
+  </main>
+
+  <script type="module" src="../src/app.js"></script>
+</body>
+
+</html>
