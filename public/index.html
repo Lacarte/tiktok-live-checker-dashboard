@@ -56,6 +56,23 @@
       </div>
     </div>
 
+    <!-- Loading Indicator -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+      <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <span>Loading data...</span>
+      </div>
+    </div>
+
+    <!-- No Data Overlay -->
+    <div id="noDataOverlay" class="no-data-overlay" style="display: none;">
+      <div class="no-data-content">
+        <div class="no-data-icon">📭</div>
+        <h3>No Data Available</h3>
+        <p id="noDataMessage">No records found for the selected period.</p>
+      </div>
+    </div>
+
     <!-- ==================== TAB 1: OVERVIEW ==================== -->
     <div id="tab-overview" class="tab-content active">
 
@@ -68,6 +85,13 @@
         <div class="card live-status-panel ghost">
           <div class="panel-header"><span class="status-dot ghost"></span> Ghost</div>
           <ul id="ghost-list" class="live-status-list"></ul>
+        </div>
+        <div class="card live-status-panel to-delete" id="to-delete-panel">
+          <div class="panel-header">
+            <span><span class="status-dot delete"></span> To Delete <span class="count-badge" id="to-delete-count">0</span></span>
+            <button class="clear-all-btn" id="clear-all-delete" title="Clear all">Clear All</button>
+          </div>
+          <ul id="to-delete-list" class="live-status-list"></ul>
         </div>
       </section>
 

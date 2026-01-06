@@ -94,9 +94,20 @@ function switchTab(tab) {
 }
 
 // ==================== DATA LOADING ====================
+const loadingOverlay = document.getElementById("loadingOverlay");
+
+const showLoading = () => {
+    if (loadingOverlay) loadingOverlay.style.display = "flex";
+};
+
+const hideLoading = () => {
+    if (loadingOverlay) loadingOverlay.style.display = "none";
+};
+
 const loadData = async () => {
     refreshBtn.disabled = true;
     refreshBtn.textContent = "Loading...";
+    showLoading();
     try {
         rawGlobalData = await fetchSheetData();
         lastUpdatedEl.textContent = `Updated: ${new Date().toLocaleTimeString()}`;
@@ -108,6 +119,7 @@ const loadData = async () => {
     } finally {
         refreshBtn.disabled = false;
         refreshBtn.textContent = "Refresh Data";
+        hideLoading();
     }
 };
 
@@ -172,11 +184,47 @@ function applyFilterAndRender() {
     // Process data
     processedData = processData(filteredRows);
 
+    // Show/hide no data overlay
+    updateNoDataOverlay(filteredRows.length, timeframe);
+
     // Update user list for search
     updateUserList();
 
     // Render current tab
     renderCurrentTab();
+}
+
+// ==================== NO DATA OVERLAY ====================
+function updateNoDataOverlay(recordCount, timeframe) {
+    const overlay = document.getElementById("noDataOverlay");
+    const message = document.getElementById("noDataMessage");
+    if (!overlay || !message) return;
+
+    if (recordCount === 0 && timeframe !== "all") {
+        // Build friendly message based on timeframe
+        let periodText = "";
+        if (timeframe === "day") {
+            const selectedDate = new Date(datePicker.value);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            selectedDate.setHours(0, 0, 0, 0);
+
+            if (selectedDate > today) {
+                periodText = "This is a future date.";
+            } else {
+                periodText = `No records found for ${datePicker.value}.`;
+            }
+        } else if (timeframe === "week") {
+            periodText = `No records found for the selected week.`;
+        } else if (timeframe === "month") {
+            periodText = `No records found for the selected month.`;
+        }
+
+        message.textContent = periodText;
+        overlay.style.display = "flex";
+    } else {
+        overlay.style.display = "none";
+    }
 }
 
 function isDateInSelectedWeek(date, weekString) {
@@ -280,54 +328,146 @@ const shortenName = (name, maxLength = 15) => {
     return name.substring(0, maxLength) + "...";
 };
 
+// ==================== USER MARKS (VIP & DELETED) ====================
+const USER_MARKS_KEY = "tiktok-analytics-user-marks";
+
+function getUserMarks() {
+    const stored = localStorage.getItem(USER_MARKS_KEY);
+    return stored ? JSON.parse(stored) : { vip: [], deleted: [] };
+}
+
+function saveUserMarks(marks) {
+    localStorage.setItem(USER_MARKS_KEY, JSON.stringify(marks));
+}
+
+function toggleUserMark(nickname, markType) {
+    const marks = getUserMarks();
+    const list = marks[markType] || [];
+    const index = list.indexOf(nickname);
+
+    if (index === -1) {
+        list.push(nickname);
+    } else {
+        list.splice(index, 1);
+    }
+
+    marks[markType] = list;
+    saveUserMarks(marks);
+    renderLiveStatus(); // Re-render to update UI
+}
+
+function isUserMarked(nickname, markType) {
+    const marks = getUserMarks();
+    return (marks[markType] || []).includes(nickname);
+}
+
+// Close menus when clicking outside
+document.addEventListener("click", (e) => {
+    if (!e.target.closest(".user-menu-container")) {
+        document.querySelectorAll(".user-menu-dropdown.show").forEach(menu => {
+            menu.classList.remove("show");
+        });
+    }
+});
+
 // ==================== LIVE STATUS (NOW ONLINE & GHOST) ====================
 function renderLiveStatus() {
-    if (!processedData.length) return;
+    if (!rawGlobalData.length) return;
 
-    // Find the most recent timestamp in the data (last data block)
-    let latestTimestamp = null;
-    processedData.forEach(user => {
-        if (user.lastSeen && (!latestTimestamp || user.lastSeen > latestTimestamp)) {
-            latestTimestamp = user.lastSeen;
+    // Get all unique timestamps (blocks) sorted descending
+    const allTimestamps = [...new Set(rawGlobalData.map(r => r.datetime?.getTime()))].filter(Boolean).sort((a, b) => b - a);
+
+    if (allTimestamps.length < 1) return;
+
+    const latestBlockTime = allTimestamps[0];
+    const latestBlockThreshold = latestBlockTime - 1 * 60 * 1000; // 1 min tolerance for same block
+
+    // Find users in the latest block
+    const latestBlockUsers = new Set();
+    rawGlobalData.forEach(r => {
+        if (r.datetime && r.datetime.getTime() >= latestBlockThreshold) {
+            latestBlockUsers.add(r.nickname);
         }
     });
 
-    if (!latestTimestamp) return;
+    // Find the previous block (first timestamp that's outside the latest block threshold)
+    let previousBlockTime = null;
+    for (const ts of allTimestamps) {
+        if (ts < latestBlockThreshold) {
+            previousBlockTime = ts;
+            break;
+        }
+    }
 
     const nowOnline = [];
     const ghosts = [];
 
-    // Users in the latest block (within 1 minute of latest timestamp = same block)
-    const latestBlockThreshold = new Date(latestTimestamp.getTime() - 1 * 60 * 1000);
-    // Ghost threshold: users last seen 15 min before the latest block
-    const ghostThreshold = new Date(latestTimestamp.getTime() - 15 * 60 * 1000);
-
+    // Now Online: users in the latest block
     processedData.forEach(user => {
-        if (!user.lastSeen) return;
-        const lastSeen = user.lastSeen;
-
-        // Now Online: in the latest data block
-        if (lastSeen >= latestBlockThreshold) {
+        if (latestBlockUsers.has(user.nickname)) {
             nowOnline.push(user);
         }
-        // Ghost: was online within 15 min before latest block but NOT in latest block
-        else if (lastSeen >= ghostThreshold && lastSeen < latestBlockThreshold) {
-            ghosts.push(user);
-        }
     });
+
+    // Ghost detection: only if gap between last two blocks is >= 1 hour
+    if (previousBlockTime) {
+        const gapMinutes = (latestBlockTime - previousBlockTime) / (1000 * 60);
+
+        if (gapMinutes < 60) {
+            // Find users in the previous block
+            const previousBlockThreshold = previousBlockTime - 1 * 60 * 1000; // 1 min tolerance
+            const previousBlockUsers = new Set();
+            rawGlobalData.forEach(r => {
+                if (r.datetime && r.datetime.getTime() >= previousBlockThreshold && r.datetime.getTime() < latestBlockThreshold) {
+                    previousBlockUsers.add(r.nickname);
+                }
+            });
+
+            // Ghost: was in previous block but NOT in latest block
+            processedData.forEach(user => {
+                if (previousBlockUsers.has(user.nickname) && !latestBlockUsers.has(user.nickname)) {
+                    ghosts.push(user);
+                }
+            });
+        }
+    }
 
     // Render Now Online
     const nowOnlineList = document.getElementById("now-online-list");
     if (nowOnlineList) {
         nowOnlineList.innerHTML = "";
+
         if (nowOnline.length === 0) {
             nowOnlineList.innerHTML = '<li class="empty-state">No users currently online</li>';
         } else {
             nowOnline.forEach(user => {
+                const isVip = isUserMarked(user.nickname, "vip");
+                const isMarkedDelete = isUserMarked(user.nickname, "toDelete");
                 const li = document.createElement("li");
-                li.innerHTML = `<a href="${user.link || '#'}" target="_blank">${user.nickname}</a>`;
+                li.className = `${isVip ? "vip-user" : ""} ${isMarkedDelete ? "marked-delete" : ""}`.trim();
+                li.innerHTML = `
+                    <div class="user-item">
+                        ${isMarkedDelete ? '<span class="delete-badge" title="Marked for deletion">❌</span>' : ''}
+                        ${isVip && !isMarkedDelete ? '<span class="vip-badge" title="VIP">👁️</span>' : ''}
+                        <a href="${user.link || '#'}" target="_blank">${user.nickname}</a>
+                        <div class="user-menu-container">
+                            <button class="user-menu-btn" title="Options">☰</button>
+                            <div class="user-menu-dropdown">
+                                <button class="menu-option ${isVip ? 'active' : ''}" data-action="vip" data-user="${user.nickname}">
+                                    👁️ ${isVip ? 'Remove VIP' : 'Mark as VIP'}
+                                </button>
+                                <button class="menu-option delete ${isMarkedDelete ? 'active' : ''}" data-action="toDelete" data-user="${user.nickname}">
+                                    ❌ ${isMarkedDelete ? 'Unmark Delete' : 'Mark for Delete'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
                 nowOnlineList.appendChild(li);
             });
+
+            // Attach event listeners
+            attachUserMenuListeners(nowOnlineList);
         }
     }
 
@@ -335,17 +475,119 @@ function renderLiveStatus() {
     const ghostList = document.getElementById("ghost-list");
     if (ghostList) {
         ghostList.innerHTML = "";
+
         if (ghosts.length === 0) {
             ghostList.innerHTML = '<li class="empty-state">No ghost users</li>';
         } else {
             ghosts.forEach(user => {
+                const isVip = isUserMarked(user.nickname, "vip");
+                const isMarkedDelete = isUserMarked(user.nickname, "toDelete");
                 const li = document.createElement("li");
-                const minAgo = Math.round((latestTimestamp - user.lastSeen) / (1000 * 60));
-                li.innerHTML = `<a href="${user.link || '#'}" target="_blank" title="Left ${minAgo} min ago">${user.nickname}</a>`;
+                li.className = `${isVip ? "vip-user" : ""} ${isMarkedDelete ? "marked-delete" : ""}`.trim();
+                const minAgo = Math.round((latestBlockTime - (user.lastSeen?.getTime() || 0)) / (1000 * 60));
+                li.innerHTML = `
+                    <div class="user-item">
+                        ${isMarkedDelete ? '<span class="delete-badge" title="Marked for deletion">❌</span>' : ''}
+                        ${isVip && !isMarkedDelete ? '<span class="vip-badge" title="VIP">👁️</span>' : ''}
+                        <a href="${user.link || '#'}" target="_blank" title="Left ${minAgo} min ago">${user.nickname}</a>
+                        <div class="user-menu-container">
+                            <button class="user-menu-btn" title="Options">☰</button>
+                            <div class="user-menu-dropdown">
+                                <button class="menu-option ${isVip ? 'active' : ''}" data-action="vip" data-user="${user.nickname}">
+                                    👁️ ${isVip ? 'Remove VIP' : 'Mark as VIP'}
+                                </button>
+                                <button class="menu-option delete ${isMarkedDelete ? 'active' : ''}" data-action="toDelete" data-user="${user.nickname}">
+                                    ❌ ${isMarkedDelete ? 'Unmark Delete' : 'Mark for Delete'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
                 ghostList.appendChild(li);
             });
+
+            // Attach event listeners
+            attachUserMenuListeners(ghostList);
         }
     }
+
+    // Render To Delete panel
+    renderToDeletePanel();
+}
+
+function attachUserMenuListeners(container) {
+    container.querySelectorAll(".user-menu-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const dropdown = btn.nextElementSibling;
+            document.querySelectorAll(".user-menu-dropdown.show").forEach(menu => {
+                if (menu !== dropdown) menu.classList.remove("show");
+            });
+            dropdown.classList.toggle("show");
+        });
+    });
+
+    container.querySelectorAll(".menu-option").forEach(opt => {
+        opt.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const action = opt.dataset.action;
+            const username = opt.dataset.user;
+            toggleUserMark(username, action);
+        });
+    });
+}
+
+function renderToDeletePanel() {
+    const panel = document.getElementById("to-delete-panel");
+    const list = document.getElementById("to-delete-list");
+    const countBadge = document.getElementById("to-delete-count");
+
+    if (!panel || !list) return;
+
+    const marks = getUserMarks();
+    const toDeleteList = marks.toDelete || [];
+
+    // Update count badge
+    if (countBadge) {
+        countBadge.textContent = toDeleteList.length;
+        countBadge.style.display = toDeleteList.length > 0 ? "inline-flex" : "none";
+    }
+
+    list.innerHTML = "";
+
+    if (toDeleteList.length === 0) {
+        list.innerHTML = '<li class="empty-state">No users marked for deletion</li>';
+    } else {
+        toDeleteList.forEach(nickname => {
+            const li = document.createElement("li");
+            li.innerHTML = `
+                <span class="delete-user-name">${nickname}</span>
+                <button class="clear-user-btn" data-user="${nickname}" title="Remove from list">✕</button>
+            `;
+            list.appendChild(li);
+        });
+
+        // Attach clear individual user listeners
+        list.querySelectorAll(".clear-user-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const username = btn.dataset.user;
+                toggleUserMark(username, "toDelete");
+            });
+        });
+    }
+}
+
+function clearAllToDelete() {
+    const marks = getUserMarks();
+    marks.toDelete = [];
+    saveUserMarks(marks);
+    renderLiveStatus();
+}
+
+// Attach clear all button listener
+const clearAllBtn = document.getElementById("clear-all-delete");
+if (clearAllBtn) {
+    clearAllBtn.addEventListener("click", clearAllToDelete);
 }
 
 // ==================== TAB 1: OVERVIEW ====================
