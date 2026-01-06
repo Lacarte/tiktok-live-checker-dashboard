@@ -511,8 +511,17 @@ function renderLiveStatus() {
         }
     }
 
-    // Render To Delete panel
-    renderToDeletePanel();
+    // Update marks count badge
+    updateMarksCountBadge();
+}
+
+function updateMarksCountBadge() {
+    const marksCountBadge = document.getElementById("marksCountBadge");
+    if (marksCountBadge) {
+        const marks = getUserMarks();
+        const total = (marks.vip?.length || 0) + (marks.toDelete?.length || 0);
+        marksCountBadge.textContent = total;
+    }
 }
 
 function attachUserMenuListeners(container) {
@@ -537,57 +546,197 @@ function attachUserMenuListeners(container) {
     });
 }
 
-function renderToDeletePanel() {
-    const panel = document.getElementById("to-delete-panel");
-    const list = document.getElementById("to-delete-list");
-    const countBadge = document.getElementById("to-delete-count");
-
-    if (!panel || !list) return;
+function renderMarksModal() {
+    const vipList = document.getElementById("vip-list");
+    const toDeleteList = document.getElementById("to-delete-list");
+    const vipCount = document.getElementById("vip-count");
+    const toDeleteCount = document.getElementById("to-delete-count");
+    const marksCountBadge = document.getElementById("marksCountBadge");
 
     const marks = getUserMarks();
-    const toDeleteList = marks.toDelete || [];
+    const vipUsers = marks.vip || [];
+    const toDeleteUsers = marks.toDelete || [];
 
-    // Update count badge
-    if (countBadge) {
-        countBadge.textContent = toDeleteList.length;
-        countBadge.style.display = toDeleteList.length > 0 ? "inline-flex" : "none";
+    // Update count badges
+    if (vipCount) vipCount.textContent = vipUsers.length;
+    if (toDeleteCount) toDeleteCount.textContent = toDeleteUsers.length;
+    if (marksCountBadge) marksCountBadge.textContent = vipUsers.length + toDeleteUsers.length;
+
+    // Render VIP list
+    if (vipList) {
+        vipList.innerHTML = "";
+        if (vipUsers.length === 0) {
+            vipList.innerHTML = '<li class="empty-state">No VIP users</li>';
+        } else {
+            vipUsers.forEach(nickname => {
+                const li = document.createElement("li");
+                li.innerHTML = `
+                    <span>${nickname}</span>
+                    <button class="clear-user-btn" data-user="${nickname}" data-type="vip" title="Remove">✕</button>
+                `;
+                vipList.appendChild(li);
+            });
+        }
     }
 
-    list.innerHTML = "";
-
-    if (toDeleteList.length === 0) {
-        list.innerHTML = '<li class="empty-state">No users marked for deletion</li>';
-    } else {
-        toDeleteList.forEach(nickname => {
-            const li = document.createElement("li");
-            li.innerHTML = `
-                <span class="delete-user-name">${nickname}</span>
-                <button class="clear-user-btn" data-user="${nickname}" title="Remove from list">✕</button>
-            `;
-            list.appendChild(li);
-        });
-
-        // Attach clear individual user listeners
-        list.querySelectorAll(".clear-user-btn").forEach(btn => {
-            btn.addEventListener("click", () => {
-                const username = btn.dataset.user;
-                toggleUserMark(username, "toDelete");
+    // Render To Delete list
+    if (toDeleteList) {
+        toDeleteList.innerHTML = "";
+        if (toDeleteUsers.length === 0) {
+            toDeleteList.innerHTML = '<li class="empty-state">No users marked for deletion</li>';
+        } else {
+            toDeleteUsers.forEach(nickname => {
+                const li = document.createElement("li");
+                li.innerHTML = `
+                    <span>${nickname}</span>
+                    <button class="clear-user-btn" data-user="${nickname}" data-type="toDelete" title="Remove">✕</button>
+                `;
+                toDeleteList.appendChild(li);
             });
+        }
+    }
+
+    // Attach clear individual user listeners
+    document.querySelectorAll("#marksModal .clear-user-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const username = btn.dataset.user;
+            const type = btn.dataset.type;
+            toggleUserMark(username, type);
+            renderMarksModal();
         });
+    });
+}
+
+function clearAllVip() {
+    if (confirm("Are you sure you want to clear all VIP users?")) {
+        const marks = getUserMarks();
+        marks.vip = [];
+        saveUserMarks(marks);
+        renderMarksModal();
+        renderLiveStatus();
     }
 }
 
 function clearAllToDelete() {
-    const marks = getUserMarks();
-    marks.toDelete = [];
-    saveUserMarks(marks);
-    renderLiveStatus();
+    if (confirm("Are you sure you want to clear all users marked for deletion?")) {
+        const marks = getUserMarks();
+        marks.toDelete = [];
+        saveUserMarks(marks);
+        renderMarksModal();
+        renderLiveStatus();
+    }
 }
 
-// Attach clear all button listener
-const clearAllBtn = document.getElementById("clear-all-delete");
-if (clearAllBtn) {
-    clearAllBtn.addEventListener("click", clearAllToDelete);
+// Modal controls
+const marksModal = document.getElementById("marksModal");
+const viewMarksBtn = document.getElementById("viewMarksBtn");
+const closeMarksModal = document.getElementById("closeMarksModal");
+
+if (viewMarksBtn) {
+    viewMarksBtn.addEventListener("click", () => {
+        renderMarksModal();
+        marksModal.style.display = "flex";
+    });
+}
+
+if (closeMarksModal) {
+    closeMarksModal.addEventListener("click", () => {
+        marksModal.style.display = "none";
+    });
+}
+
+if (marksModal) {
+    marksModal.addEventListener("click", (e) => {
+        if (e.target === marksModal) {
+            marksModal.style.display = "none";
+        }
+    });
+}
+
+// Attach clear all button listeners
+const clearAllVipBtn = document.getElementById("clear-all-vip");
+const clearAllDeleteBtn = document.getElementById("clear-all-delete");
+
+if (clearAllVipBtn) {
+    clearAllVipBtn.addEventListener("click", clearAllVip);
+}
+
+if (clearAllDeleteBtn) {
+    clearAllDeleteBtn.addEventListener("click", clearAllToDelete);
+}
+
+// ==================== IMPORT/EXPORT USER MARKS ====================
+function exportUserMarks() {
+    const marks = getUserMarks();
+    const dataStr = JSON.stringify(marks, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `tiktok-analytics-marks-${new Date().toISOString().split("T")[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function importUserMarks(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const imported = JSON.parse(e.target.result);
+
+            // Validate structure
+            if (typeof imported !== "object" || imported === null) {
+                throw new Error("Invalid format");
+            }
+
+            // Merge with existing marks
+            const currentMarks = getUserMarks();
+
+            // Merge VIP list
+            if (Array.isArray(imported.vip)) {
+                const vipSet = new Set([...currentMarks.vip, ...imported.vip]);
+                currentMarks.vip = [...vipSet];
+            }
+
+            // Merge toDelete list (handle both "deleted" and "toDelete" keys)
+            const importedDelete = imported.toDelete || imported.deleted || [];
+            if (Array.isArray(importedDelete)) {
+                const deleteSet = new Set([...currentMarks.toDelete || [], ...importedDelete]);
+                currentMarks.toDelete = [...deleteSet];
+            }
+
+            saveUserMarks(currentMarks);
+            renderLiveStatus();
+            alert(`Import successful!\nVIP: ${currentMarks.vip.length} users\nTo Delete: ${(currentMarks.toDelete || []).length} users`);
+        } catch (err) {
+            console.error("Import error:", err);
+            alert("Failed to import file. Please ensure it's a valid JSON file.");
+        }
+    };
+    reader.readAsText(file);
+}
+
+// Attach export button listener
+const exportBtn = document.getElementById("exportMarks");
+if (exportBtn) {
+    exportBtn.addEventListener("click", exportUserMarks);
+}
+
+// Attach import button listener
+const importBtn = document.getElementById("importMarks");
+const importFile = document.getElementById("importFile");
+if (importBtn && importFile) {
+    importBtn.addEventListener("click", () => importFile.click());
+    importFile.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            importUserMarks(file);
+            e.target.value = ""; // Reset file input
+        }
+    });
 }
 
 // ==================== TAB 1: OVERVIEW ====================
@@ -926,6 +1075,7 @@ function renderUserActivity(user) {
     document.getElementById("userSummary").style.display = "block";
     document.getElementById("userCharts").style.display = "grid";
     document.getElementById("userTimeline").style.display = "block";
+    document.getElementById("userSessionDetails").style.display = "block";
 
     // Profile link
     const profileLink = document.getElementById("userProfileLink");
@@ -947,10 +1097,68 @@ function renderUserActivity(user) {
     const consistency = uniqueDays > 0 ? (user.sessionCount / uniqueDays).toFixed(1) : 0;
     document.getElementById("user-consistency").textContent = `${consistency} sessions/day`;
 
-    // Charts
-    renderUserMinutesChart(user);
-    renderUserFollowersChart(user);
+    // Render session details first (doesn't depend on Chart.js)
+    renderSessionDetails(user);
     renderUserTimeline(user);
+
+    // Charts (wrap in try-catch to prevent errors from blocking other renders)
+    try {
+        renderUserMinutesChart(user);
+    } catch (err) {
+        console.error("Error rendering minutes chart:", err);
+    }
+
+    try {
+        renderUserFollowersChart(user);
+    } catch (err) {
+        console.error("Error rendering followers chart:", err);
+    }
+}
+
+function renderSessionDetails(user) {
+    const tbody = document.getElementById("sessionDetailsBody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    // Recompute sessions from records to ensure fresh data
+    const sessions = user.records && user.records.length > 0
+        ? computeSessionsList(user.records)
+        : [];
+
+    if (sessions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No sessions recorded</td></tr>';
+        return;
+    }
+
+    // Sort sessions by start time (most recent first)
+    const sortedSessions = [...sessions].sort((a, b) => {
+        const aTime = a.start instanceof Date ? a.start.getTime() : a.start;
+        const bTime = b.start instanceof Date ? b.start.getTime() : b.start;
+        return bTime - aTime;
+    });
+
+    sortedSessions.forEach((session, index) => {
+        const tr = document.createElement("tr");
+
+        // Handle both Date objects and timestamps
+        const startDate = session.start instanceof Date ? session.start : new Date(session.start);
+        const endDate = session.end instanceof Date ? session.end : new Date(session.end);
+
+        const dateStr = startDate.toLocaleDateString();
+        const startTime = startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const endTime = endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const duration = session.duration > 0 ? formatTime(session.duration) : "< 1 min";
+
+        tr.innerHTML = `
+            <td>${sortedSessions.length - index}</td>
+            <td>${dateStr}</td>
+            <td>${startTime}</td>
+            <td>${endTime}</td>
+            <td>${duration}</td>
+        `;
+        tbody.appendChild(tr);
+    });
 }
 
 function renderUserMinutesChart(user) {
@@ -1009,13 +1217,17 @@ function renderUserFollowersChart(user) {
     const ctx = document.getElementById("userFollowersChart");
     if (!ctx) return;
 
-    const data = user.records.map(r => ({ x: r.datetime, y: r.followers }));
+    // Sort records by time and create labels/data arrays
+    const sortedRecords = [...user.records].sort((a, b) => a.datetime - b.datetime);
+    const labels = sortedRecords.map(r => r.datetime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    const data = sortedRecords.map(r => r.followers);
 
     if (charts.userFollowers) charts.userFollowers.destroy();
 
     charts.userFollowers = new Chart(ctx, {
         type: "line",
         data: {
+            labels: labels,
             datasets: [{
                 label: "Followers",
                 data: data,
@@ -1035,13 +1247,11 @@ function renderUserFollowersChart(user) {
             plugins: { legend: { display: false } },
             scales: {
                 x: {
-                    type: "time",
-                    time: { unit: "hour" },
                     grid: { color: chartColors.grid },
-                    ticks: { color: chartColors.text }
+                    ticks: { color: chartColors.text, maxRotation: 45, minRotation: 45 }
                 },
                 y: {
-                    beginAtZero: true,
+                    beginAtZero: false,
                     grid: { color: chartColors.grid },
                     ticks: { color: chartColors.text }
                 }

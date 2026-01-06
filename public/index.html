@@ -32,6 +32,11 @@
       </label>
       <span class="toggle-label">Auto-refresh</span>
     </div>
+    <div class="data-management">
+      <button id="exportMarks" class="secondary-btn small" title="Export VIP & Delete lists">Export</button>
+      <button id="importMarks" class="secondary-btn small" title="Import VIP & Delete lists">Import</button>
+      <input type="file" id="importFile" accept=".json" style="display: none;">
+    </div>
     <div class="sidebar-footer">
       <span id="lastUpdated" class="text-muted">Last updated: -</span>
       <span id="totalRecords" class="text-muted">Records: 0</span>
@@ -77,23 +82,47 @@
     <div id="tab-overview" class="tab-content active">
 
       <!-- Now Online & Ghost Sections -->
-      <section class="live-status-grid">
+      <section class="live-status-grid two-col">
         <div class="card live-status-panel now-online">
-          <div class="panel-header"><span class="status-dot online"></span> Now Online</div>
+          <div class="panel-header">
+            <span><span class="status-dot online"></span> Now Online</span>
+            <button class="view-marks-btn" id="viewMarksBtn" title="View VIP & Delete lists">
+              View VIP/Delete <span class="marks-count-badge" id="marksCountBadge">0</span>
+            </button>
+          </div>
           <ul id="now-online-list" class="live-status-list"></ul>
         </div>
         <div class="card live-status-panel ghost">
           <div class="panel-header"><span class="status-dot ghost"></span> Ghost</div>
           <ul id="ghost-list" class="live-status-list"></ul>
         </div>
-        <div class="card live-status-panel to-delete" id="to-delete-panel">
-          <div class="panel-header">
-            <span><span class="status-dot delete"></span> To Delete <span class="count-badge" id="to-delete-count">0</span></span>
-            <button class="clear-all-btn" id="clear-all-delete" title="Clear all">Clear All</button>
-          </div>
-          <ul id="to-delete-list" class="live-status-list"></ul>
-        </div>
       </section>
+
+      <!-- VIP/Delete Modal -->
+      <div id="marksModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>VIP & Delete Lists</h3>
+            <button class="modal-close-btn" id="closeMarksModal">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="marks-section">
+              <div class="marks-section-header">
+                <span>👁️ VIP Users <span class="count-badge" id="vip-count">0</span></span>
+                <button class="clear-all-btn" id="clear-all-vip">Clear All</button>
+              </div>
+              <ul id="vip-list" class="marks-list"></ul>
+            </div>
+            <div class="marks-section">
+              <div class="marks-section-header">
+                <span>❌ To Delete <span class="count-badge" id="to-delete-count">0</span></span>
+                <button class="clear-all-btn" id="clear-all-delete">Clear All</button>
+              </div>
+              <ul id="to-delete-list" class="marks-list"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- KPI Cards -->
       <section class="kpi-grid">
@@ -230,7 +259,7 @@
         </div>
         <div class="summary-stats">
           <div class="stat-item">
-            <span class="stat-label">Total Minutes</span>
+            <span class="stat-label">Total Time</span>
             <span class="stat-value" id="user-total-minutes">-</span>
           </div>
           <div class="stat-item">
@@ -276,6 +305,23 @@
       <section id="userTimeline" class="card" style="display:none;">
         <div class="section-title">Session Activity Timeline</div>
         <div id="sessionTimeline" class="timeline-strip"></div>
+      </section>
+
+      <!-- Session Details Table -->
+      <section id="userSessionDetails" class="table-container" style="display:none;">
+        <div class="table-header">Session Details</div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Date</th>
+              <th>Start Time</th>
+              <th>End Time</th>
+              <th>Duration</th>
+            </tr>
+          </thead>
+          <tbody id="sessionDetailsBody"></tbody>
+        </table>
       </section>
 
     </div>
