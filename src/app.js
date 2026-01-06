@@ -2,6 +2,29 @@ import { fetchSheetData } from "./sheetService.js";
 import { computeSessions, computeSessionsList } from "./sessions.js";
 import { computeScore } from "./metrics.js";
 
+// ==================== CHART.JS DARK THEME CONFIG ====================
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.borderColor = '#334155';
+Chart.defaults.backgroundColor = 'rgba(59, 130, 246, 0.5)';
+
+// Dark theme colors for charts
+const chartColors = {
+    primary: '#3b82f6',
+    primaryGlow: 'rgba(59, 130, 246, 0.3)',
+    success: '#22c55e',
+    successGlow: 'rgba(34, 197, 94, 0.2)',
+    warning: '#f59e0b',
+    warningGlow: 'rgba(245, 158, 11, 0.2)',
+    cyan: '#06b6d4',
+    cyanGlow: 'rgba(6, 182, 212, 0.2)',
+    magenta: '#ec4899',
+    magentaGlow: 'rgba(236, 72, 153, 0.2)',
+    purple: '#a855f7',
+    purpleGlow: 'rgba(168, 85, 247, 0.2)',
+    grid: '#334155',
+    text: '#94a3b8'
+};
+
 // ==================== DOM ELEMENTS ====================
 const refreshBtn = document.getElementById("refresh");
 const datePicker = document.getElementById("datePicker");
@@ -375,12 +398,14 @@ function renderTopScoreChart() {
     charts.topScore = new Chart(ctx, {
         type: "bar",
         data: {
-            labels: top10.map(d => d.nickname),
+            labels: top10.map(d => shortenName(d.nickname, 12)),
             datasets: [{
                 label: "Score",
                 data: top10.map(d => d.score),
-                backgroundColor: "#3b82f6",
-                borderRadius: 4
+                backgroundColor: chartColors.primary,
+                borderColor: chartColors.primary,
+                borderRadius: 6,
+                borderWidth: 0
             }]
         },
         options: {
@@ -388,8 +413,15 @@ function renderTopScoreChart() {
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-                y: { beginAtZero: true },
-                x: { ticks: { maxRotation: 45, minRotation: 45 } }
+                y: {
+                    beginAtZero: true,
+                    grid: { color: chartColors.grid },
+                    ticks: { color: chartColors.text }
+                },
+                x: {
+                    ticks: { maxRotation: 45, minRotation: 45, color: chartColors.text },
+                    grid: { display: false }
+                }
             }
         }
     });
@@ -426,17 +458,31 @@ function renderActivityTimeChart() {
             datasets: [{
                 label: "Activity (Records)",
                 data: data,
-                borderColor: "#16a34a",
-                backgroundColor: "rgba(22, 163, 74, 0.1)",
+                borderColor: chartColors.success,
+                backgroundColor: chartColors.successGlow,
                 fill: true,
-                tension: 0.3
+                tension: 0.4,
+                pointBackgroundColor: chartColors.success,
+                pointBorderColor: chartColors.success,
+                pointRadius: 3,
+                pointHoverRadius: 6
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true } }
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: chartColors.grid },
+                    ticks: { color: chartColors.text }
+                },
+                x: {
+                    grid: { color: chartColors.grid },
+                    ticks: { color: chartColors.text }
+                }
+            }
         }
     });
 }
@@ -561,15 +607,25 @@ function renderSessionDistChart() {
             datasets: [{
                 label: "Users",
                 data: Object.values(buckets),
-                backgroundColor: "#f59e0b",
-                borderRadius: 4
+                backgroundColor: chartColors.warning,
+                borderRadius: 6
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true } }
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: chartColors.grid },
+                    ticks: { color: chartColors.text }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: chartColors.text }
+                }
+            }
         }
     });
 }
@@ -597,15 +653,25 @@ function renderFollowersDistChart() {
             datasets: [{
                 label: "Users",
                 data: Object.values(buckets),
-                backgroundColor: "#8b5cf6",
-                borderRadius: 4
+                backgroundColor: chartColors.purple,
+                borderRadius: 6
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true } }
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: chartColors.grid },
+                    ticks: { color: chartColors.text }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: chartColors.text }
+                }
+            }
         }
     });
 }
@@ -668,17 +734,31 @@ function renderUserMinutesChart(user) {
             datasets: [{
                 label: "Minutes",
                 data: data,
-                borderColor: "#3b82f6",
-                backgroundColor: "rgba(59, 130, 246, 0.1)",
+                borderColor: chartColors.cyan,
+                backgroundColor: chartColors.cyanGlow,
                 fill: true,
-                tension: 0.3
+                tension: 0.4,
+                pointBackgroundColor: chartColors.cyan,
+                pointBorderColor: chartColors.cyan,
+                pointRadius: 3,
+                pointHoverRadius: 6
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true } }
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: chartColors.grid },
+                    ticks: { color: chartColors.text }
+                },
+                x: {
+                    grid: { color: chartColors.grid },
+                    ticks: { color: chartColors.text }
+                }
+            }
         }
     });
 }
@@ -697,10 +777,14 @@ function renderUserFollowersChart(user) {
             datasets: [{
                 label: "Followers",
                 data: data,
-                borderColor: "#16a34a",
-                backgroundColor: "rgba(22, 163, 74, 0.1)",
+                borderColor: chartColors.magenta,
+                backgroundColor: chartColors.magentaGlow,
                 fill: true,
-                tension: 0.3
+                tension: 0.4,
+                pointBackgroundColor: chartColors.magenta,
+                pointBorderColor: chartColors.magenta,
+                pointRadius: 3,
+                pointHoverRadius: 6
             }]
         },
         options: {
@@ -708,8 +792,17 @@ function renderUserFollowersChart(user) {
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-                x: { type: "time", time: { unit: "hour" } },
-                y: { beginAtZero: true }
+                x: {
+                    type: "time",
+                    time: { unit: "hour" },
+                    grid: { color: chartColors.grid },
+                    ticks: { color: chartColors.text }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: chartColors.grid },
+                    ticks: { color: chartColors.text }
+                }
             }
         }
     });
@@ -782,15 +875,25 @@ function renderSessionLengthHist() {
             datasets: [{
                 label: "Sessions",
                 data: Object.values(buckets),
-                backgroundColor: "#0891b2",
-                borderRadius: 4
+                backgroundColor: chartColors.cyan,
+                borderRadius: 6
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true } }
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: chartColors.grid },
+                    ticks: { color: chartColors.text }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: chartColors.text }
+                }
+            }
         }
     });
 }
@@ -825,16 +928,26 @@ function renderHeatmap() {
                 data: hours.map(h => hourCounts[h]),
                 backgroundColor: hours.map(h => {
                     const intensity = hourCounts[h] / maxCount;
-                    return `rgba(59, 130, 246, ${0.3 + intensity * 0.7})`;
+                    return `rgba(6, 182, 212, ${0.3 + intensity * 0.7})`;
                 }),
-                borderRadius: 4
+                borderRadius: 6
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true } }
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: chartColors.grid },
+                    ticks: { color: chartColors.text }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: chartColors.text }
+                }
+            }
         }
     });
 }
