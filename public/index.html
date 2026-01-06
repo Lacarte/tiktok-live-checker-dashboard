@@ -18,88 +18,305 @@
       <span>📊</span> TikTokAnalytics
     </div>
     <nav class="nav-links">
-      <div class="nav-item active">Dashboard</div>
-      <div class="nav-item">Settings</div>
+      <div class="nav-item active" data-tab="overview">Overview</div>
+      <div class="nav-item" data-tab="rankings">Rankings</div>
+      <div class="nav-item" data-tab="user-activity">User Activity</div>
+      <div class="nav-item" data-tab="sessions">Sessions & Time</div>
+      <div class="nav-item" data-tab="insights">Insights</div>
     </nav>
     <button id="refresh" class="primary-btn">Refresh Data</button>
+    <div class="sidebar-footer">
+      <span id="lastUpdated" class="text-muted">Last updated: -</span>
+      <span id="totalRecords" class="text-muted">Records: 0</span>
+    </div>
   </aside>
 
   <!-- Main Content -->
   <main class="main-content">
 
+    <!-- Persistent Top Bar -->
     <div class="header">
-      <h2>Dashboard</h2>
+      <h2 id="pageTitle">Overview</h2>
       <div class="controls">
-        <label>Timeframe:</label>
-        <select id="timeframeSelect" style="padding:0.5rem; border-radius:0.5rem; border:1px solid #cbd5e1;">
+        <label>Period:</label>
+        <select id="timeframeSelect">
           <option value="all">All Time</option>
-          <option value="day" selected>Daily</option>
-          <option value="week">Weekly</option>
-          <option value="month">Monthly</option>
+          <option value="day" selected>Day</option>
+          <option value="week">Week</option>
+          <option value="month">Month</option>
         </select>
         <input type="date" id="datePicker" class="date-picker">
       </div>
     </div>
 
-    <!-- KPI Cards -->
-    <section class="kpi-grid">
-      <div class="card">
-        <span class="kpi-title">Avg Daily Conn.</span>
-        <span class="kpi-value" id="kpi-daily-avg">-</span>
-      </div>
-      <div class="card">
-        <span class="kpi-title">Active Users</span>
-        <span class="kpi-value" id="kpi-active-users">-</span>
-      </div>
-      <div class="card">
-        <span class="kpi-title">Most Connected</span>
-        <span class="kpi-value" id="kpi-max-user" style="font-size:1.1rem; color:#16a34a;">-</span>
-        <span class="kpi-sub" id="kpi-max-time" style="font-size:0.8rem; color:#64748b;">0m</span>
-      </div>
-      <div class="card">
-        <span class="kpi-title">Least Connected</span>
-        <span class="kpi-value" id="kpi-min-user" style="font-size:1.1rem; color:#dc2626;">-</span>
-        <span class="kpi-sub" id="kpi-min-time" style="font-size:0.8rem; color:#64748b;">0m</span>
-      </div>
-    </section>
+    <!-- ==================== TAB 1: OVERVIEW ==================== -->
+    <div id="tab-overview" class="tab-content active">
 
-    <!-- Daily Stats Panel (Hidden by default or empty) -->
-    <section class="card" id="dailyPanel" style="display:none;">
-      <div class="section-title">📅 Stats for <span id="selectedDateLabel"></span></div>
-      <div id="dailyStatsContent">Select a date to see daily breakdown.</div>
-      <table id="dailyTable">
-        <thead>
-          <tr>
-            <th>Streamer</th>
-            <th>Time (Min)</th>
-            <th>Sessions</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </section>
+      <!-- KPI Cards -->
+      <section class="kpi-grid">
+        <div class="card kpi-card">
+          <span class="kpi-title">Total Connected Minutes</span>
+          <span class="kpi-value" id="kpi-total-minutes">-</span>
+        </div>
+        <div class="card kpi-card">
+          <span class="kpi-title">Total Sessions</span>
+          <span class="kpi-value" id="kpi-total-sessions">-</span>
+        </div>
+        <div class="card kpi-card">
+          <span class="kpi-title">Active Users</span>
+          <span class="kpi-value" id="kpi-active-users">-</span>
+        </div>
+        <div class="card kpi-card">
+          <span class="kpi-title">Avg Session Duration</span>
+          <span class="kpi-value" id="kpi-avg-session">-</span>
+        </div>
+        <div class="card kpi-card highlight">
+          <span class="kpi-title">Highest Score User</span>
+          <span class="kpi-value" id="kpi-top-score-user">-</span>
+          <span class="kpi-sub" id="kpi-top-score-value">Score: 0</span>
+        </div>
+      </section>
 
-    <!-- Charts Section -->
-    <section class="chart-container">
-      <canvas id="topChart"></canvas>
-    </section>
+      <!-- Charts Row -->
+      <section class="charts-row">
+        <div class="card chart-card">
+          <div class="section-title">Top 10 Users by Score</div>
+          <div class="chart-wrapper">
+            <canvas id="topScoreChart"></canvas>
+          </div>
+        </div>
+        <div class="card chart-card">
+          <div class="section-title">Activity Over Time</div>
+          <div class="chart-wrapper">
+            <canvas id="activityTimeChart"></canvas>
+          </div>
+        </div>
+      </section>
 
-    <!-- Detailed List -->
-    <section class="table-container">
-      <div style="padding: 1rem; font-weight: bold; border-bottom: 1px solid #e2e8f0;">All Time Rankings</div>
-      <table>
-        <thead style="cursor: pointer; user-select: none;">
-          <tr>
-            <th id="sort-rank">Rank</th>
-            <th id="sort-nickname">Nickname ↕</th>
-            <th id="sort-minutes">Minutes Connected ↕</th>
-            <th id="sort-sessions">Sessions ↕</th>
-            <th id="sort-score">Score ↕</th>
-          </tr>
-        </thead>
-        <tbody id="rankingBody"></tbody>
-      </table>
-    </section>
+      <!-- Top 5 Highlight Panels -->
+      <section class="highlights-grid">
+        <div class="card highlight-panel">
+          <div class="panel-header">🏆 Top 5 by Score</div>
+          <ul id="top5-score" class="highlight-list"></ul>
+        </div>
+        <div class="card highlight-panel">
+          <div class="panel-header">⏱️ Top 5 by Connected Minutes</div>
+          <ul id="top5-minutes" class="highlight-list"></ul>
+        </div>
+        <div class="card highlight-panel">
+          <div class="panel-header">🔁 Top 5 by Session Count</div>
+          <ul id="top5-sessions" class="highlight-list"></ul>
+        </div>
+        <div class="card highlight-panel">
+          <div class="panel-header">👥 Top 5 by Avg Followers</div>
+          <ul id="top5-followers" class="highlight-list"></ul>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ==================== TAB 2: RANKINGS ==================== -->
+    <div id="tab-rankings" class="tab-content">
+
+      <!-- Ranking Mode Toggle -->
+      <section class="ranking-controls">
+        <label>Rank By:</label>
+        <select id="rankingMode">
+          <option value="score">Score</option>
+          <option value="minutes">Time Connected</option>
+          <option value="sessions">Sessions</option>
+          <option value="avgFollowers">Avg Followers</option>
+          <option value="maxFollowers">Max Followers</option>
+        </select>
+      </section>
+
+      <!-- Master Ranking Table -->
+      <section class="table-container">
+        <div class="table-header">Master Ranking Table</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th class="sortable" data-sort="nickname">Nickname ↕</th>
+              <th class="sortable" data-sort="minutes">Minutes ↕</th>
+              <th class="sortable" data-sort="sessions">Sessions ↕</th>
+              <th class="sortable" data-sort="avgFollowers">Avg Followers ↕</th>
+              <th class="sortable" data-sort="maxFollowers">Max Followers ↕</th>
+              <th class="sortable" data-sort="score">Score ↕</th>
+              <th>First Seen</th>
+              <th>Last Seen</th>
+            </tr>
+          </thead>
+          <tbody id="rankingBody"></tbody>
+        </table>
+      </section>
+
+      <!-- Distribution Charts -->
+      <section class="charts-row">
+        <div class="card chart-card">
+          <div class="section-title">Session Duration Distribution</div>
+          <div class="chart-wrapper">
+            <canvas id="sessionDistChart"></canvas>
+          </div>
+        </div>
+        <div class="card chart-card">
+          <div class="section-title">Followers Distribution</div>
+          <div class="chart-wrapper">
+            <canvas id="followersDistChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ==================== TAB 3: USER ACTIVITY ==================== -->
+    <div id="tab-user-activity" class="tab-content">
+
+      <!-- User Selector -->
+      <section class="user-selector card">
+        <label>Select User:</label>
+        <input type="text" id="userSearch" placeholder="Search by nickname..." list="userList">
+        <datalist id="userList"></datalist>
+        <a id="userProfileLink" href="#" target="_blank" class="profile-link" style="display:none;">View Profile</a>
+      </section>
+
+      <!-- User Summary Card -->
+      <section id="userSummary" class="user-summary card" style="display:none;">
+        <div class="summary-header">
+          <h3 id="selectedUserName">-</h3>
+        </div>
+        <div class="summary-stats">
+          <div class="stat-item">
+            <span class="stat-label">Total Minutes</span>
+            <span class="stat-value" id="user-total-minutes">-</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Sessions</span>
+            <span class="stat-value" id="user-sessions">-</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Avg Session Length</span>
+            <span class="stat-value" id="user-avg-session">-</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Avg Followers</span>
+            <span class="stat-value" id="user-avg-followers">-</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Max Followers</span>
+            <span class="stat-value" id="user-max-followers">-</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Consistency Score</span>
+            <span class="stat-value" id="user-consistency">-</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- User Charts -->
+      <section id="userCharts" class="charts-row" style="display:none;">
+        <div class="card chart-card">
+          <div class="section-title">Connected Minutes Over Time</div>
+          <div class="chart-wrapper">
+            <canvas id="userMinutesChart"></canvas>
+          </div>
+        </div>
+        <div class="card chart-card">
+          <div class="section-title">Followers While Live</div>
+          <div class="chart-wrapper">
+            <canvas id="userFollowersChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sessions Timeline -->
+      <section id="userTimeline" class="card" style="display:none;">
+        <div class="section-title">Session Activity Timeline</div>
+        <div id="sessionTimeline" class="timeline-strip"></div>
+      </section>
+
+    </div>
+
+    <!-- ==================== TAB 4: SESSIONS & TIME ==================== -->
+    <div id="tab-sessions" class="tab-content">
+
+      <!-- Session Length Distribution -->
+      <section class="card chart-card-full">
+        <div class="section-title">Session Length Distribution</div>
+        <div class="chart-wrapper-full">
+          <canvas id="sessionLengthHist"></canvas>
+        </div>
+      </section>
+
+      <!-- Time-of-Day Heatmap -->
+      <section class="card">
+        <div class="section-title">Time-of-Day Heatmap (Activity by Hour)</div>
+        <div id="heatmapContainer" class="heatmap-container">
+          <canvas id="heatmapChart"></canvas>
+        </div>
+      </section>
+
+      <!-- Session Reliability Matrix -->
+      <section class="card">
+        <div class="section-title">Session Reliability Matrix (Users vs Days)</div>
+        <div id="reliabilityMatrix" class="matrix-container"></div>
+      </section>
+
+    </div>
+
+    <!-- ==================== TAB 5: INSIGHTS & ANOMALIES ==================== -->
+    <div id="tab-insights" class="tab-content">
+
+      <!-- Automatic Insights -->
+      <section class="insights-grid">
+        <div class="card insight-panel">
+          <div class="insight-icon">📈</div>
+          <div class="insight-title">Highest Follower Spike</div>
+          <div class="insight-content" id="insight-follower-spike">-</div>
+        </div>
+        <div class="card insight-panel">
+          <div class="insight-icon">⏰</div>
+          <div class="insight-title">Longest Continuous Presence</div>
+          <div class="insight-content" id="insight-longest-presence">-</div>
+        </div>
+        <div class="card insight-panel">
+          <div class="insight-icon">🔄</div>
+          <div class="insight-title">Most Consistent Streamer</div>
+          <div class="insight-content" id="insight-most-consistent">-</div>
+        </div>
+        <div class="card insight-panel">
+          <div class="insight-icon">⚡</div>
+          <div class="insight-title">Highest Activity Burst</div>
+          <div class="insight-content" id="insight-activity-burst">-</div>
+        </div>
+      </section>
+
+      <!-- Opportunity Signals -->
+      <section class="card">
+        <div class="section-title">Opportunity Signals</div>
+        <div class="opportunities-grid">
+          <div class="opportunity-panel">
+            <div class="opportunity-header">🌱 Growth Opportunity</div>
+            <div class="opportunity-desc">High followers + Low time = Potential for growth</div>
+            <ul id="growth-opportunities" class="opportunity-list"></ul>
+          </div>
+          <div class="opportunity-panel">
+            <div class="opportunity-header">📢 Exposure Inefficiency</div>
+            <div class="opportunity-desc">High time + Low followers = Needs better reach</div>
+            <ul id="exposure-issues" class="opportunity-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Anomaly Detection -->
+      <section class="card">
+        <div class="section-title">Anomaly Detection</div>
+        <div id="anomalies-list" class="anomalies-container">
+          <p class="text-muted">Analyzing data for anomalies...</p>
+        </div>
+      </section>
+
+    </div>
 
   </main>
 
