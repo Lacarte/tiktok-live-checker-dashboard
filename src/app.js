@@ -19,6 +19,8 @@ let rawGlobalData = [];
 let processedData = [];
 let currentTab = "overview";
 let currentSort = { key: "score", order: "desc" };
+let autoRefreshInterval = null;
+const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 // Chart instances
 let charts = {
@@ -250,9 +252,85 @@ const formatDate = (d) => {
     return d.toLocaleDateString();
 };
 
+const shortenName = (name, maxLength = 15) => {
+    if (!name || name.length <= maxLength) return name;
+    return name.substring(0, maxLength) + "...";
+};
+
+// ==================== LIVE STATUS (NOW ONLINE & GHOST) ====================
+function renderLiveStatus() {
+    if (!processedData.length) return;
+
+    // Find the most recent timestamp in the data (last data block)
+    let latestTimestamp = null;
+    processedData.forEach(user => {
+        if (user.lastSeen && (!latestTimestamp || user.lastSeen > latestTimestamp)) {
+            latestTimestamp = user.lastSeen;
+        }
+    });
+
+    if (!latestTimestamp) return;
+
+    const nowOnline = [];
+    const ghosts = [];
+
+    // Users in the latest block (within 1 minute of latest timestamp = same block)
+    const latestBlockThreshold = new Date(latestTimestamp.getTime() - 1 * 60 * 1000);
+    // Ghost threshold: users last seen 15 min before the latest block
+    const ghostThreshold = new Date(latestTimestamp.getTime() - 15 * 60 * 1000);
+
+    processedData.forEach(user => {
+        if (!user.lastSeen) return;
+        const lastSeen = user.lastSeen;
+
+        // Now Online: in the latest data block
+        if (lastSeen >= latestBlockThreshold) {
+            nowOnline.push(user);
+        }
+        // Ghost: was online within 15 min before latest block but NOT in latest block
+        else if (lastSeen >= ghostThreshold && lastSeen < latestBlockThreshold) {
+            ghosts.push(user);
+        }
+    });
+
+    // Render Now Online
+    const nowOnlineList = document.getElementById("now-online-list");
+    if (nowOnlineList) {
+        nowOnlineList.innerHTML = "";
+        if (nowOnline.length === 0) {
+            nowOnlineList.innerHTML = '<li class="empty-state">No users currently online</li>';
+        } else {
+            nowOnline.forEach(user => {
+                const li = document.createElement("li");
+                li.innerHTML = `<a href="${user.link || '#'}" target="_blank">${user.nickname}</a>`;
+                nowOnlineList.appendChild(li);
+            });
+        }
+    }
+
+    // Render Ghost
+    const ghostList = document.getElementById("ghost-list");
+    if (ghostList) {
+        ghostList.innerHTML = "";
+        if (ghosts.length === 0) {
+            ghostList.innerHTML = '<li class="empty-state">No ghost users</li>';
+        } else {
+            ghosts.forEach(user => {
+                const li = document.createElement("li");
+                const minAgo = Math.round((latestTimestamp - user.lastSeen) / (1000 * 60));
+                li.innerHTML = `<a href="${user.link || '#'}" target="_blank" title="Left ${minAgo} min ago">${user.nickname}</a>`;
+                ghostList.appendChild(li);
+            });
+        }
+    }
+}
+
 // ==================== TAB 1: OVERVIEW ====================
 function renderOverviewTab() {
     if (!processedData.length) return;
+
+    // Render live status sections
+    renderLiveStatus();
 
     // KPIs
     const totalMinutes = processedData.reduce((s, u) => s + u.minutes, 0);
@@ -266,7 +344,14 @@ function renderOverviewTab() {
     document.getElementById("kpi-total-sessions").textContent = totalSessions;
     document.getElementById("kpi-active-users").textContent = activeUsers;
     document.getElementById("kpi-avg-session").textContent = formatTime(avgSession);
-    document.getElementById("kpi-top-score-user").textContent = topScorer?.nickname || "-";
+
+    const topScoreUserEl = document.getElementById("kpi-top-score-user");
+    if (topScoreUserEl && topScorer) {
+        topScoreUserEl.textContent = shortenName(topScorer.nickname, 10);
+        topScoreUserEl.title = topScorer.nickname;
+    } else if (topScoreUserEl) {
+        topScoreUserEl.textContent = "-";
+    }
     document.getElementById("kpi-top-score-value").textContent = `Score: ${formatNumber(topScorer?.score || 0)}`;
 
     // Top 10 by Score Chart
@@ -380,8 +465,10 @@ function renderHighlightList(elementId, data, valueFormatter) {
     el.innerHTML = "";
     data.forEach((u, i) => {
         const li = document.createElement("li");
+        const displayName = shortenName(u.nickname, 20);
+        const needsTooltip = u.nickname.length > 20;
         li.innerHTML = `
-            <span class="name">${i + 1}. ${u.nickname}</span>
+            <span class="name" ${needsTooltip ? `title="${u.nickname}"` : ""}>${i + 1}. ${displayName}</span>
             <span class="value">${valueFormatter(u)}</span>
         `;
         el.appendChild(li);
@@ -963,6 +1050,53 @@ function renderAnomalies() {
             </div>
         `).join("");
     }
+}
+
+// ==================== AUTO REFRESH ====================
+const autoRefreshToggle = document.getElementById("autoRefreshToggle");
+const AUTO_REFRESH_STORAGE_KEY = "tiktok-analytics-auto-refresh";
+
+function startAutoRefresh() {
+    if (autoRefreshInterval) return;
+    autoRefreshInterval = setInterval(() => {
+        console.log("Auto-refreshing data...");
+        loadData();
+    }, AUTO_REFRESH_INTERVAL_MS);
+}
+
+function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+    }
+}
+
+function saveAutoRefreshState(enabled) {
+    localStorage.setItem(AUTO_REFRESH_STORAGE_KEY, JSON.stringify(enabled));
+}
+
+function loadAutoRefreshState() {
+    const stored = localStorage.getItem(AUTO_REFRESH_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : false;
+}
+
+if (autoRefreshToggle) {
+    // Load saved state
+    const savedState = loadAutoRefreshState();
+    autoRefreshToggle.checked = savedState;
+    if (savedState) {
+        startAutoRefresh();
+    }
+
+    autoRefreshToggle.addEventListener("change", (e) => {
+        const isEnabled = e.target.checked;
+        saveAutoRefreshState(isEnabled);
+        if (isEnabled) {
+            startAutoRefresh();
+        } else {
+            stopAutoRefresh();
+        }
+    });
 }
 
 // ==================== AUTO LOAD ====================

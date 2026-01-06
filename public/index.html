@@ -25,6 +25,13 @@
       <div class="nav-item" data-tab="insights">Insights</div>
     </nav>
     <button id="refresh" class="primary-btn">Refresh Data</button>
+    <div class="auto-refresh-toggle">
+      <label class="toggle-switch">
+        <input type="checkbox" id="autoRefreshToggle">
+        <span class="toggle-slider"></span>
+      </label>
+      <span class="toggle-label">Auto-refresh</span>
+    </div>
     <div class="sidebar-footer">
       <span id="lastUpdated" class="text-muted">Last updated: -</span>
       <span id="totalRecords" class="text-muted">Records: 0</span>
@@ -51,6 +58,18 @@
 
     <!-- ==================== TAB 1: OVERVIEW ==================== -->
     <div id="tab-overview" class="tab-content active">
+
+      <!-- Now Online & Ghost Sections -->
+      <section class="live-status-grid">
+        <div class="card live-status-panel now-online">
+          <div class="panel-header"><span class="status-dot online"></span> Now Online</div>
+          <ul id="now-online-list" class="live-status-list"></ul>
+        </div>
+        <div class="card live-status-panel ghost">
+          <div class="panel-header"><span class="status-dot ghost"></span> Ghost</div>
+          <ul id="ghost-list" class="live-status-list"></ul>
+        </div>
+      </section>
 
       <!-- KPI Cards -->
       <section class="kpi-grid">

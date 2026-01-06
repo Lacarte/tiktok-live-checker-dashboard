@@ -93,6 +93,64 @@ button.primary-btn:disabled {
   cursor: not-allowed;
 }
 
+/* Auto-refresh Toggle */
+.auto-refresh-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #475569;
+  transition: 0.3s;
+  border-radius: 22px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: var(--success);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(18px);
+}
+
+.toggle-label {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
 .sidebar-footer {
   display: flex;
   flex-direction: column;
@@ -204,6 +262,11 @@ button.primary-btn:disabled {
   font-size: 1.75rem;
   font-weight: bold;
   color: var(--text-primary);
+  cursor: default;
+}
+
+.kpi-value[title] {
+  cursor: help;
 }
 
 .kpi-sub {
@@ -277,6 +340,11 @@ button.primary-btn:disabled {
 .highlight-list .name {
   font-weight: 500;
   color: var(--text-primary);
+  cursor: default;
+}
+
+.highlight-list .name[title] {
+  cursor: help;
 }
 
 .highlight-list .value {
@@ -596,6 +664,111 @@ td a:hover {
 .anomaly-item .desc {
   font-size: 0.8rem;
   color: var(--text-secondary);
+}
+
+/* ==================== LIVE STATUS (NOW ONLINE & GHOST) ==================== */
+.live-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.live-status-panel {
+  min-height: 120px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.live-status-panel .panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot.online {
+  background-color: var(--success);
+  box-shadow: 0 0 6px var(--success);
+  animation: pulse 1.5s infinite;
+}
+
+.status-dot.ghost {
+  background-color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.live-status-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.live-status-list li {
+  display: inline-block;
+}
+
+.live-status-list li a {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  background: #f1f5f9;
+  border-radius: 1rem;
+  text-decoration: none;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.live-status-list li a:hover {
+  background: var(--accent);
+  color: white;
+}
+
+.now-online .live-status-list li a {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.now-online .live-status-list li a:hover {
+  background: var(--success);
+  color: white;
+}
+
+.ghost .live-status-list li a {
+  background: #f1f5f9;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+.ghost .live-status-list li a:hover {
+  background: #64748b;
+  color: white;
+  opacity: 1;
+}
+
+.live-status-list .empty-state {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-style: italic;
 }
 
 /* ==================== RESPONSIVE ==================== */
