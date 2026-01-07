@@ -44,7 +44,11 @@ let currentTab = "overview";
 let currentSort = { key: "score", order: "desc" };
 let autoRefreshInterval = null;
 let currentSelectedUser = null; // Track currently selected user in User Activity tab
+let previousOnlineVips = new Set(); // Track VIP users that were online in previous refresh
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
+// VIP notification sound
+const vipNotificationSound = new Audio("assets/new-vip.wav");
 
 // Chart instances
 let charts = {
@@ -505,6 +509,9 @@ function renderLiveStatus() {
         }
     });
 
+    // Check for new VIP users online and play notification sound
+    checkForNewOnlineVips(nowOnline);
+
     // Ghost detection: only if gap between last two blocks is >= 1 hour
     if (previousBlockTime) {
         const gapMinutes = (latestBlockTime - previousBlockTime) / (1000 * 60);
@@ -617,6 +624,50 @@ function updateMarksCountBadge() {
         const marks = getUserMarks();
         const total = (marks.vip?.length || 0) + (marks.toDelete?.length || 0);
         marksCountBadge.textContent = total;
+    }
+}
+
+// Check for new VIP users coming online and play notification sound
+function checkForNewOnlineVips(nowOnline) {
+    const marks = getUserMarks();
+    const vipList = marks.vip || [];
+
+    // Get current online VIP users
+    const currentOnlineVips = new Set();
+    nowOnline.forEach(user => {
+        if (vipList.includes(user.nickname)) {
+            currentOnlineVips.add(user.nickname);
+        }
+    });
+
+    // Find new VIP users (online now but weren't before)
+    const newVips = [];
+    currentOnlineVips.forEach(nickname => {
+        if (!previousOnlineVips.has(nickname)) {
+            newVips.push(nickname);
+        }
+    });
+
+    // Play sound if there are new VIP users online
+    if (newVips.length > 0 && previousOnlineVips.size > 0) {
+        // Only play sound after initial load (previousOnlineVips.size > 0)
+        console.log("New VIP user(s) online:", newVips.join(", "));
+        playVipNotificationSound();
+    }
+
+    // Update the previous set for next comparison
+    previousOnlineVips = currentOnlineVips;
+}
+
+// Play the VIP notification sound
+function playVipNotificationSound() {
+    try {
+        vipNotificationSound.currentTime = 0; // Reset to start
+        vipNotificationSound.play().catch(err => {
+            console.warn("Could not play VIP notification sound:", err.message);
+        });
+    } catch (err) {
+        console.warn("Error playing VIP notification sound:", err);
     }
 }
 
