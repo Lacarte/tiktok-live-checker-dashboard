@@ -51,13 +51,14 @@ export async function fetchSheetData() {
 function processRows(rows) {
   return rows.map(r => {
     // Column Structure:
-    // A [0]: nickname
+    // A [0]: nickname (display name from TikTok)
     // B [1]: Followers
     // C [2]: Link (https://www.tiktok.com/@username/live)
     // D [3]: Timestamp (Unix timestamp in seconds)
 
     const link = r[2] || "";
-    let nickname = r[0]; // Default to Display Name
+    const displayNickname = r[0] || ""; // Original display name from TikTok
+    let username = displayNickname; // Default to display name if extraction fails
 
     // ---------------------------------------------------------
     // EXTRACTION LOGIC: Get username from URL (Column C)
@@ -67,7 +68,7 @@ function processRows(rows) {
         // "https://.../@username/live" -> split by '@' -> "username/live" -> split by '/' -> "username"
         const afterAt = link.split("@")[1];
         if (afterAt) {
-          nickname = afterAt.split("/")[0];
+          username = afterAt.split("/")[0];
         }
       }
     } catch (e) {
@@ -95,7 +96,8 @@ function processRows(rows) {
     }
 
     return {
-      nickname: nickname,
+      nickname: username, // Username (from URL) for internal tracking/reliability
+      displayNickname: displayNickname, // Original display name for tooltip
       followers: Number(r[1]),
       link: link, // Keep original link
       datetime: datetime

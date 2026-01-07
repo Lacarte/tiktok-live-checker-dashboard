@@ -318,9 +318,13 @@ function isDateInSelectedWeek(date, weekString, tz) {
 function processData(rows) {
     const byUser = {};
     rows.forEach(r => {
-        byUser[r.nickname] = byUser[r.nickname] || { records: [], followers: [] };
+        byUser[r.nickname] = byUser[r.nickname] || { records: [], followers: [], displayNickname: r.displayNickname || r.nickname };
         byUser[r.nickname].records.push(r);
         byUser[r.nickname].followers.push(r.followers);
+        // Keep the most recent displayNickname
+        if (r.displayNickname) {
+            byUser[r.nickname].displayNickname = r.displayNickname;
+        }
     });
 
     return Object.entries(byUser).map(([nickname, data]) => {
@@ -331,7 +335,8 @@ function processData(rows) {
         const maxFollowers = Math.max(...data.followers);
 
         return {
-            nickname,
+            nickname, // Username for internal tracking
+            displayNickname: data.displayNickname || nickname, // Original nickname for tooltip
             minutes,
             sessions,
             sessionCount: sessions.length,
@@ -611,11 +616,18 @@ function renderLiveStatus() {
                 const hasNewVipHighlight = isVip && isNewVipHighlight(user.nickname);
                 const li = document.createElement("li");
                 li.className = `${isVip ? "vip-user" : ""} ${isMarkedDelete ? "marked-delete" : ""} ${hasNewVipHighlight ? "new-vip-highlight" : ""}`.trim();
+
+                // Truncate username to 12 chars, tooltip shows: full username | full nickname
+                const username = user.nickname;
+                const displayNickname = user.displayNickname || username;
+                const labelName = username.length > 12 ? username.substring(0, 12) + "..." : username;
+                const tooltip = `${username} | ${displayNickname}`;
+
                 li.innerHTML = `
                     <div class="user-item">
                         ${isMarkedDelete ? '<span class="delete-badge" title="Marked for deletion">❌</span>' : ''}
                         ${isVip && !isMarkedDelete ? '<span class="vip-badge" title="VIP">👁️</span>' : ''}
-                        <a href="${user.link || '#'}" target="_blank">${user.nickname}</a>
+                        <a href="${user.link || '#'}" target="_blank" title="${tooltip}">${labelName}</a>
                         <div class="user-menu-container">
                             <button class="user-menu-btn" title="Options">☰</button>
                             <div class="user-menu-dropdown">
@@ -654,20 +666,27 @@ function renderLiveStatus() {
                 const li = document.createElement("li");
                 li.className = `${isVip ? "vip-user" : ""} ${isMarkedDelete ? "marked-delete" : ""} ${hasNewVipHighlight ? "new-vip-highlight" : ""}`.trim();
 
+                // Truncate username to 12 chars, tooltip shows: full username | full nickname
+                const username = user.nickname;
+                const displayNickname = user.displayNickname || username;
+                const labelName = username.length > 12 ? username.substring(0, 12) + "..." : username;
+
                 // Different tooltip for past dates vs current date
-                let tooltip;
+                let timeInfo;
                 if (isViewingPastDate) {
-                    tooltip = `Last seen: ${formatTimeOnly(user.lastSeen, true)}`;
+                    timeInfo = `Last seen: ${formatTimeOnly(user.lastSeen, true)}`;
                 } else {
                     const minAgo = Math.round((latestBlockTime - (user.lastSeen?.getTime() || 0)) / (1000 * 60));
-                    tooltip = `Left ${minAgo} min ago`;
+                    timeInfo = `Left ${minAgo} min ago`;
                 }
+                // Tooltip: full username | full nickname + time info
+                const tooltip = `${username} | ${displayNickname} - ${timeInfo}`;
 
                 li.innerHTML = `
                     <div class="user-item">
                         ${isMarkedDelete ? '<span class="delete-badge" title="Marked for deletion">❌</span>' : ''}
                         ${isVip && !isMarkedDelete ? '<span class="vip-badge" title="VIP">👁️</span>' : ''}
-                        <a href="${user.link || '#'}" target="_blank" title="${tooltip}">${user.nickname}</a>
+                        <a href="${user.link || '#'}" target="_blank" title="${tooltip}">${labelName}</a>
                         <div class="user-menu-container">
                             <button class="user-menu-btn" title="Options">☰</button>
                             <div class="user-menu-dropdown">
