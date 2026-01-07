@@ -45,6 +45,7 @@ let currentSort = { key: "score", order: "desc" };
 let autoRefreshInterval = null;
 let currentSelectedUser = null; // Track currently selected user in User Activity tab
 let isInitialLoad = true; // Track if this is the first load (don't play sound on page load)
+let isManualVipChange = false; // Track if VIP list was just manually changed (don't play sound)
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 // VIP notification sound
@@ -456,6 +457,12 @@ function toggleUserMark(nickname, markType) {
 
     marks[markType] = list;
     saveUserMarks(marks);
+
+    // If marking as VIP, set flag to prevent sound on re-render
+    if (markType === "vip") {
+        isManualVipChange = true;
+    }
+
     renderLiveStatus(); // Re-render to update UI
 }
 
@@ -676,8 +683,8 @@ function checkForNewOnlineVips(nowOnline) {
         }
     });
 
-    // Play sound if there are new VIP users online (but not on initial page load)
-    if (newVips.length > 0 && !isInitialLoad) {
+    // Play sound if there are new VIP users online (but not on initial page load or manual VIP change)
+    if (newVips.length > 0 && !isInitialLoad && !isManualVipChange) {
         console.log("New VIP user(s) online:", newVips.join(", "));
         playVipNotificationSound();
     }
@@ -685,9 +692,12 @@ function checkForNewOnlineVips(nowOnline) {
     // Save current state to localStorage for next comparison
     saveOnlineVips(currentOnlineVips);
 
-    // Mark initial load as complete
+    // Reset flags
     if (isInitialLoad) {
         isInitialLoad = false;
+    }
+    if (isManualVipChange) {
+        isManualVipChange = false;
     }
 }
 
