@@ -49,7 +49,7 @@ let isManualVipChange = false; // Track if VIP list was just manually changed (d
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 // VIP notification sound
-const vipNotificationSound = new Audio("assets/new-vip.wav");
+const vipNotificationSound = new Audio("assets/new-vip.mp3");
 
 // LocalStorage key for tracking online VIPs
 const ONLINE_VIPS_KEY = "tiktok-analytics-online-vips";
@@ -484,64 +484,109 @@ document.addEventListener("click", (e) => {
 function renderLiveStatus() {
     if (!rawGlobalData.length) return;
 
-    // Get all unique timestamps (blocks) sorted descending
+    const tz = getTimezone();
+    const timeframe = timeframeSelect.value;
+
+    // Check if we're viewing a past date (not today)
+    const todayInTz = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+    const isViewingPastDate = timeframe === "day" && datePicker.value !== todayInTz;
+
+    // Get timestamps from FILTERED data for the selected period
+    const filteredTimestamps = [...new Set(
+        processedData.flatMap(u => u.records.map(r => r.datetime?.getTime()))
+    )].filter(Boolean).sort((a, b) => b - a);
+
+    // Get all unique timestamps from RAW data (for current day detection)
     const allTimestamps = [...new Set(rawGlobalData.map(r => r.datetime?.getTime()))].filter(Boolean).sort((a, b) => b - a);
 
-    if (allTimestamps.length < 1) return;
-
-    const latestBlockTime = allTimestamps[0];
-    const latestBlockThreshold = latestBlockTime - 1 * 60 * 1000; // 1 min tolerance for same block
-
-    // Find users in the latest block
-    const latestBlockUsers = new Set();
-    rawGlobalData.forEach(r => {
-        if (r.datetime && r.datetime.getTime() >= latestBlockThreshold) {
-            latestBlockUsers.add(r.nickname);
-        }
-    });
-
-    // Find the previous block (first timestamp that's outside the latest block threshold)
-    let previousBlockTime = null;
-    for (const ts of allTimestamps) {
-        if (ts < latestBlockThreshold) {
-            previousBlockTime = ts;
-            break;
-        }
+    if (filteredTimestamps.length < 1) {
+        // No data for selected period - clear both lists
+        const nowOnlineList = document.getElementById("now-online-list");
+        const ghostList = document.getElementById("ghost-list");
+        if (nowOnlineList) nowOnlineList.innerHTML = '<li class="empty-state">No users currently online</li>';
+        if (ghostList) ghostList.innerHTML = '<li class="empty-state">No ghost users</li>';
+        updateMarksCountBadge();
+        return;
     }
 
     const nowOnline = [];
     const ghosts = [];
+    let latestBlockTime = null; // Declare at outer scope for use in rendering
 
-    // Now Online: users in the latest block
-    processedData.forEach(user => {
-        if (latestBlockUsers.has(user.nickname)) {
-            nowOnline.push(user);
+    if (isViewingPastDate) {
+        // PAST DATE: Show last block users in Ghost section, Now Online is empty
+        latestBlockTime = filteredTimestamps[0];
+        const latestBlockThreshold = latestBlockTime - 1 * 60 * 1000; // 1 min tolerance
+
+        // Find users in the last block of the past day
+        processedData.forEach(user => {
+            const userLatestRecord = user.records
+                .filter(r => r.datetime)
+                .sort((a, b) => b.datetime - a.datetime)[0];
+
+            if (userLatestRecord && userLatestRecord.datetime.getTime() >= latestBlockThreshold) {
+                // User was in the last block of this past day - show as ghost
+                user.lastSeen = userLatestRecord.datetime;
+                ghosts.push(user);
+            }
+        });
+
+        // Don't check for VIP notifications on past dates
+    } else {
+        // CURRENT DATE or ALL TIME: Normal behavior
+        if (allTimestamps.length < 1) return;
+
+        latestBlockTime = allTimestamps[0];
+        const latestBlockThreshold = latestBlockTime - 1 * 60 * 1000; // 1 min tolerance for same block
+
+        // Find users in the latest block (from raw data - current status)
+        const latestBlockUsers = new Set();
+        rawGlobalData.forEach(r => {
+            if (r.datetime && r.datetime.getTime() >= latestBlockThreshold) {
+                latestBlockUsers.add(r.nickname);
+            }
+        });
+
+        // Find the previous block (first timestamp that's outside the latest block threshold)
+        let previousBlockTime = null;
+        for (const ts of allTimestamps) {
+            if (ts < latestBlockThreshold) {
+                previousBlockTime = ts;
+                break;
+            }
         }
-    });
 
-    // Check for new VIP users online and play notification sound
-    checkForNewOnlineVips(nowOnline);
+        // Now Online: users in the latest block (that are also in filtered data)
+        processedData.forEach(user => {
+            if (latestBlockUsers.has(user.nickname)) {
+                nowOnline.push(user);
+            }
+        });
 
-    // Ghost detection: only if gap between last two blocks is >= 1 hour
-    if (previousBlockTime) {
-        const gapMinutes = (latestBlockTime - previousBlockTime) / (1000 * 60);
+        // Check for new VIP users online and play notification sound
+        checkForNewOnlineVips(nowOnline);
 
-        if (gapMinutes < 60) {
-            // Find users in the previous block
-            const previousBlockThreshold = previousBlockTime - 1 * 60 * 1000; // 1 min tolerance
-            const previousBlockUsers = new Set();
-            rawGlobalData.forEach(r => {
-                if (r.datetime && r.datetime.getTime() >= previousBlockThreshold && r.datetime.getTime() < latestBlockThreshold) {
-                    previousBlockUsers.add(r.nickname);
-                }
-            });
+        // Ghost detection: only if gap between last two blocks is < 60 minutes
+        if (previousBlockTime) {
+            const gapMinutes = (latestBlockTime - previousBlockTime) / (1000 * 60);
 
-            // Ghost: was in previous block but NOT in latest block
-            processedData.forEach(user => {
-                if (previousBlockUsers.has(user.nickname) && !latestBlockUsers.has(user.nickname)) {
-                    ghosts.push(user);
-                }
-            });
+            if (gapMinutes < 60) {
+                // Find users in the previous block
+                const previousBlockThreshold = previousBlockTime - 1 * 60 * 1000; // 1 min tolerance
+                const previousBlockUsers = new Set();
+                rawGlobalData.forEach(r => {
+                    if (r.datetime && r.datetime.getTime() >= previousBlockThreshold && r.datetime.getTime() < latestBlockThreshold) {
+                        previousBlockUsers.add(r.nickname);
+                    }
+                });
+
+                // Ghost: was in previous block but NOT in latest block
+                processedData.forEach(user => {
+                    if (previousBlockUsers.has(user.nickname) && !latestBlockUsers.has(user.nickname)) {
+                        ghosts.push(user);
+                    }
+                });
+            }
         }
     }
 
@@ -590,19 +635,30 @@ function renderLiveStatus() {
         ghostList.innerHTML = "";
 
         if (ghosts.length === 0) {
-            ghostList.innerHTML = '<li class="empty-state">No ghost users</li>';
+            ghostList.innerHTML = isViewingPastDate
+                ? '<li class="empty-state">No users in last block</li>'
+                : '<li class="empty-state">No ghost users</li>';
         } else {
             ghosts.forEach(user => {
                 const isVip = isUserMarked(user.nickname, "vip");
                 const isMarkedDelete = isUserMarked(user.nickname, "toDelete");
                 const li = document.createElement("li");
                 li.className = `${isVip ? "vip-user" : ""} ${isMarkedDelete ? "marked-delete" : ""}`.trim();
-                const minAgo = Math.round((latestBlockTime - (user.lastSeen?.getTime() || 0)) / (1000 * 60));
+
+                // Different tooltip for past dates vs current date
+                let tooltip;
+                if (isViewingPastDate) {
+                    tooltip = `Last seen: ${formatTimeOnly(user.lastSeen, true)}`;
+                } else {
+                    const minAgo = Math.round((latestBlockTime - (user.lastSeen?.getTime() || 0)) / (1000 * 60));
+                    tooltip = `Left ${minAgo} min ago`;
+                }
+
                 li.innerHTML = `
                     <div class="user-item">
                         ${isMarkedDelete ? '<span class="delete-badge" title="Marked for deletion">❌</span>' : ''}
                         ${isVip && !isMarkedDelete ? '<span class="vip-badge" title="VIP">👁️</span>' : ''}
-                        <a href="${user.link || '#'}" target="_blank" title="Left ${minAgo} min ago">${user.nickname}</a>
+                        <a href="${user.link || '#'}" target="_blank" title="${tooltip}">${user.nickname}</a>
                         <div class="user-menu-container">
                             <button class="user-menu-btn" title="Options">☰</button>
                             <div class="user-menu-dropdown">
