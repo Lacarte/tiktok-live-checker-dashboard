@@ -1186,6 +1186,87 @@ td a:hover {
   font-weight: 600;
 }
 
+/* New VIP User Animation - 3 minute gradual fade */
+.new-vip-highlight {
+  position: relative;
+  animation: vipGlowFade 180s ease-out forwards;
+}
+
+.new-vip-highlight::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 1rem;
+  background: linear-gradient(90deg, var(--warning), #ff6b6b, var(--warning));
+  background-size: 200% 100%;
+  z-index: -1;
+  animation: vipBorderGlow 180s ease-out forwards, vipBorderShift 2s linear infinite;
+  opacity: 1;
+}
+
+@keyframes vipGlowFade {
+  0% {
+    box-shadow: 0 0 20px var(--warning-glow), 0 0 40px rgba(245, 158, 11, 0.3);
+  }
+  10% {
+    box-shadow: 0 0 18px var(--warning-glow), 0 0 35px rgba(245, 158, 11, 0.25);
+  }
+  30% {
+    box-shadow: 0 0 14px var(--warning-glow), 0 0 25px rgba(245, 158, 11, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 10px var(--warning-glow), 0 0 18px rgba(245, 158, 11, 0.15);
+  }
+  70% {
+    box-shadow: 0 0 6px var(--warning-glow), 0 0 12px rgba(245, 158, 11, 0.1);
+  }
+  90% {
+    box-shadow: 0 0 3px var(--warning-glow), 0 0 6px rgba(245, 158, 11, 0.05);
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+
+@keyframes vipBorderGlow {
+  0% {
+    opacity: 0.8;
+  }
+  10% {
+    opacity: 0.7;
+  }
+  30% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.35;
+  }
+  70% {
+    opacity: 0.2;
+  }
+  90% {
+    opacity: 0.08;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes vipBorderShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 /* User Menu */
 .user-menu-container {
   position: relative;

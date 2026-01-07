@@ -54,6 +54,10 @@ const vipNotificationSound = new Audio("assets/new-vip.mp3");
 // LocalStorage key for tracking online VIPs
 const ONLINE_VIPS_KEY = "tiktok-analytics-online-vips";
 
+// Track newly detected VIP users for animation (with timestamp for auto-expiry)
+const NEW_VIPS_KEY = "tiktok-analytics-new-vips";
+const NEW_VIP_HIGHLIGHT_DURATION = 3 * 60 * 1000; // 3 minutes in milliseconds
+
 // Chart instances
 let charts = {
     topScore: null,
@@ -590,6 +594,9 @@ function renderLiveStatus() {
         }
     }
 
+    // Clean up expired new VIP highlights before rendering
+    cleanupExpiredNewVips();
+
     // Render Now Online
     const nowOnlineList = document.getElementById("now-online-list");
     if (nowOnlineList) {
@@ -601,8 +608,9 @@ function renderLiveStatus() {
             nowOnline.forEach(user => {
                 const isVip = isUserMarked(user.nickname, "vip");
                 const isMarkedDelete = isUserMarked(user.nickname, "toDelete");
+                const hasNewVipHighlight = isVip && isNewVipHighlight(user.nickname);
                 const li = document.createElement("li");
-                li.className = `${isVip ? "vip-user" : ""} ${isMarkedDelete ? "marked-delete" : ""}`.trim();
+                li.className = `${isVip ? "vip-user" : ""} ${isMarkedDelete ? "marked-delete" : ""} ${hasNewVipHighlight ? "new-vip-highlight" : ""}`.trim();
                 li.innerHTML = `
                     <div class="user-item">
                         ${isMarkedDelete ? '<span class="delete-badge" title="Marked for deletion">❌</span>' : ''}
@@ -642,8 +650,9 @@ function renderLiveStatus() {
             ghosts.forEach(user => {
                 const isVip = isUserMarked(user.nickname, "vip");
                 const isMarkedDelete = isUserMarked(user.nickname, "toDelete");
+                const hasNewVipHighlight = isVip && isNewVipHighlight(user.nickname);
                 const li = document.createElement("li");
-                li.className = `${isVip ? "vip-user" : ""} ${isMarkedDelete ? "marked-delete" : ""}`.trim();
+                li.className = `${isVip ? "vip-user" : ""} ${isMarkedDelete ? "marked-delete" : ""} ${hasNewVipHighlight ? "new-vip-highlight" : ""}`.trim();
 
                 // Different tooltip for past dates vs current date
                 let tooltip;
@@ -715,6 +724,63 @@ function saveOnlineVips(vipsSet) {
     }
 }
 
+// Get new VIPs with their detection timestamps (for animation)
+function getNewVipsWithTimestamps() {
+    try {
+        const stored = localStorage.getItem(NEW_VIPS_KEY);
+        if (stored) {
+            return JSON.parse(stored); // { nickname: timestamp }
+        }
+    } catch (err) {
+        console.warn("Error reading new VIPs from localStorage:", err);
+    }
+    return {};
+}
+
+// Save new VIPs with timestamps
+function saveNewVipsWithTimestamps(newVipsMap) {
+    try {
+        localStorage.setItem(NEW_VIPS_KEY, JSON.stringify(newVipsMap));
+    } catch (err) {
+        console.warn("Error saving new VIPs to localStorage:", err);
+    }
+}
+
+// Check if a user should have the new VIP highlight animation
+function isNewVipHighlight(nickname) {
+    const newVips = getNewVipsWithTimestamps();
+    const detectedAt = newVips[nickname];
+    if (!detectedAt) return false;
+
+    const elapsed = Date.now() - detectedAt;
+    return elapsed < NEW_VIP_HIGHLIGHT_DURATION;
+}
+
+// Add a new VIP to the highlight list
+function addNewVipHighlight(nickname) {
+    const newVips = getNewVipsWithTimestamps();
+    newVips[nickname] = Date.now();
+    saveNewVipsWithTimestamps(newVips);
+}
+
+// Clean up expired new VIP highlights
+function cleanupExpiredNewVips() {
+    const newVips = getNewVipsWithTimestamps();
+    const now = Date.now();
+    let hasChanges = false;
+
+    for (const nickname in newVips) {
+        if (now - newVips[nickname] >= NEW_VIP_HIGHLIGHT_DURATION) {
+            delete newVips[nickname];
+            hasChanges = true;
+        }
+    }
+
+    if (hasChanges) {
+        saveNewVipsWithTimestamps(newVips);
+    }
+}
+
 // Check for new VIP users coming online and play notification sound
 function checkForNewOnlineVips(nowOnline) {
     const marks = getUserMarks();
@@ -739,10 +805,13 @@ function checkForNewOnlineVips(nowOnline) {
         }
     });
 
-    // Play sound if there are new VIP users online (but not on initial page load or manual VIP change)
+    // Play sound and add highlight if there are new VIP users online (but not on initial page load or manual VIP change)
     if (newVips.length > 0 && !isInitialLoad && !isManualVipChange) {
         console.log("New VIP user(s) online:", newVips.join(", "));
         playVipNotificationSound();
+
+        // Add new VIPs to highlight list for animation
+        newVips.forEach(nickname => addNewVipHighlight(nickname));
     }
 
     // Save current state to localStorage for next comparison
