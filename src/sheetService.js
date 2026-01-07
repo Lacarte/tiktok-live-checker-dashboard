@@ -51,10 +51,10 @@ export async function fetchSheetData() {
 function processRows(rows) {
   return rows.map(r => {
     // Column Structure:
-    // A [0]: Display Name (Ignored)
+    // A [0]: nickname
     // B [1]: Followers
     // C [2]: Link (https://www.tiktok.com/@username/live)
-    // D [3]: Timestamp
+    // D [3]: Timestamp (Unix timestamp in seconds)
 
     const link = r[2] || "";
     let nickname = r[0]; // Default to Display Name
@@ -75,11 +75,30 @@ function processRows(rows) {
     }
     // ---------------------------------------------------------
 
+    // Parse timestamp - handle both Unix timestamp (seconds) and ISO string
+    let datetime;
+    const rawTimestamp = r[3];
+    if (rawTimestamp) {
+      // Check if it's a numeric timestamp (Unix seconds or milliseconds)
+      const numericTs = Number(rawTimestamp);
+      if (!isNaN(numericTs)) {
+        // Unix timestamps in seconds are ~10 digits (before year 2286)
+        // Unix timestamps in milliseconds are ~13 digits
+        // If less than 10000000000 (year 2286 in seconds), treat as seconds
+        datetime = numericTs < 10000000000 ? new Date(numericTs * 1000) : new Date(numericTs);
+      } else {
+        // Fallback to parsing as string
+        datetime = new Date(rawTimestamp);
+      }
+    } else {
+      datetime = new Date();
+    }
+
     return {
       nickname: nickname,
       followers: Number(r[1]),
       link: link, // Keep original link
-      datetime: new Date(r[3])
+      datetime: datetime
     };
   });
 }

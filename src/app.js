@@ -43,6 +43,7 @@ let processedData = [];
 let currentTab = "overview";
 let currentSort = { key: "score", order: "desc" };
 let autoRefreshInterval = null;
+let currentSelectedUser = null; // Track currently selected user in User Activity tab
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 // Chart instances
@@ -57,8 +58,26 @@ let charts = {
     heatmap: null
 };
 
+// ==================== TIMEZONE SETTINGS ====================
+const TIMEZONE_KEY = "tiktok-analytics-timezone";
+const DEFAULT_TIMEZONE = "America/New_York"; // EST by default
+
+function getTimezone() {
+    return localStorage.getItem(TIMEZONE_KEY) || DEFAULT_TIMEZONE;
+}
+
+function setTimezone(tz) {
+    localStorage.setItem(TIMEZONE_KEY, tz);
+}
+
 // ==================== INITIALIZATION ====================
-datePicker.valueAsDate = new Date();
+// Set date picker to today's date in the selected timezone
+function setDatePickerToToday() {
+    const tz = getTimezone();
+    const todayInTz = new Date().toLocaleDateString("en-CA", { timeZone: tz }); // YYYY-MM-DD format
+    datePicker.value = todayInTz;
+}
+setDatePickerToToday();
 
 // Tab Navigation
 navItems.forEach(item => {
@@ -112,6 +131,7 @@ const loadData = async () => {
         rawGlobalData = await fetchSheetData();
         lastUpdatedEl.textContent = `Updated: ${new Date().toLocaleTimeString()}`;
         totalRecordsEl.textContent = `Records: ${rawGlobalData.length}`;
+
         applyFilterAndRender();
     } catch (err) {
         console.error(err);
@@ -137,13 +157,14 @@ if (rankingModeSelect) {
     };
 }
 
-// User search
+// User search - uses processedData (filtered by date)
 const userSearch = document.getElementById("userSearch");
 if (userSearch) {
     userSearch.oninput = () => {
         const val = userSearch.value.toLowerCase();
         const user = processedData.find(u => u.nickname.toLowerCase() === val);
         if (user) {
+            currentSelectedUser = user.nickname; // Track selected user
             renderUserActivity(user);
         }
     };
@@ -160,23 +181,32 @@ function applyFilterAndRender() {
     else if (timeframe === "month") datePicker.type = "month";
     else datePicker.type = "date";
 
-    // Filter rows
+    const tz = getTimezone();
+
+    // Filter rows using selected timezone
     const filteredRows = rawGlobalData.filter(r => {
         if (!r.datetime) return false;
         const d = r.datetime;
 
+        // Check if datetime is valid
+        if (isNaN(d.getTime())) return false;
+
         if (timeframe === "all") return true;
 
         if (timeframe === "day") {
-            return d.toISOString().split("T")[0] === datePicker.value;
+            // Get date in selected timezone (YYYY-MM-DD format)
+            const dateInTz = d.toLocaleDateString("en-CA", { timeZone: tz });
+            return dateInTz === datePicker.value;
         }
 
         if (timeframe === "week") {
-            return isDateInSelectedWeek(d, datePicker.value);
+            return isDateInSelectedWeek(d, datePicker.value, tz);
         }
 
         if (timeframe === "month") {
-            return d.toISOString().startsWith(datePicker.value);
+            // Get year-month in selected timezone
+            const dateInTz = d.toLocaleDateString("en-CA", { timeZone: tz });
+            return dateInTz.startsWith(datePicker.value);
         }
         return true;
     });
@@ -192,6 +222,32 @@ function applyFilterAndRender() {
 
     // Render current tab
     renderCurrentTab();
+
+    // Refresh selected user's data if one is selected
+    refreshSelectedUser();
+}
+
+// Refresh the currently selected user's data when filter changes
+function refreshSelectedUser() {
+    if (!currentSelectedUser) return;
+
+    const user = processedData.find(u => u.nickname.toLowerCase() === currentSelectedUser.toLowerCase());
+
+    if (user) {
+        // User exists in filtered data - update their view
+        renderUserActivity(user);
+    } else {
+        // User not in filtered data - hide user activity sections
+        const userSummary = document.getElementById("userSummary");
+        const userCharts = document.getElementById("userCharts");
+        const userTimeline = document.getElementById("userTimeline");
+        const userSessionDetails = document.getElementById("userSessionDetails");
+
+        if (userSummary) userSummary.style.display = "none";
+        if (userCharts) userCharts.style.display = "none";
+        if (userTimeline) userTimeline.style.display = "none";
+        if (userSessionDetails) userSessionDetails.style.display = "none";
+    }
 }
 
 // ==================== NO DATA OVERLAY ====================
@@ -227,12 +283,16 @@ function updateNoDataOverlay(recordCount, timeframe) {
     }
 }
 
-function isDateInSelectedWeek(date, weekString) {
+function isDateInSelectedWeek(date, weekString, tz) {
     if (!weekString) return false;
     const [year, week] = weekString.split("-W");
-    const dYear = date.getFullYear();
-    const target = new Date(date.valueOf());
-    const dayNr = (date.getDay() + 6) % 7;
+
+    // Get date components in selected timezone
+    const dateInTz = new Date(date.toLocaleString("en-US", { timeZone: tz }));
+    const dYear = dateInTz.getFullYear();
+
+    const target = new Date(dateInTz.valueOf());
+    const dayNr = (dateInTz.getDay() + 6) % 7;
     target.setDate(target.getDate() - dayNr + 3);
     const firstThursday = target.valueOf();
     target.setMonth(0, 1);
@@ -278,6 +338,7 @@ function updateUserList() {
     const datalist = document.getElementById("userList");
     if (!datalist) return;
     datalist.innerHTML = "";
+    // Use processedData so only users from filtered date are shown
     processedData.forEach(u => {
         const opt = document.createElement("option");
         opt.value = u.nickname;
@@ -306,6 +367,20 @@ function renderCurrentTab() {
     }
 }
 
+// Initialize timezone select
+const timezoneSelect = document.getElementById("timezoneSelect");
+if (timezoneSelect) {
+    // Load saved timezone
+    timezoneSelect.value = getTimezone();
+
+    // Save on change, update date picker, and re-filter/render
+    timezoneSelect.addEventListener("change", (e) => {
+        setTimezone(e.target.value);
+        setDatePickerToToday(); // Update date picker to today in new timezone
+        applyFilterAndRender(); // Re-filter and render with new timezone
+    });
+}
+
 // ==================== HELPERS ====================
 const formatTime = (m) => {
     if (m >= 60) return `${(m / 60).toFixed(1)} hrs`;
@@ -320,7 +395,28 @@ const formatNumber = (n) => {
 
 const formatDate = (d) => {
     if (!d) return "-";
-    return d.toLocaleDateString();
+    const tz = getTimezone();
+    return d.toLocaleDateString("en-US", { timeZone: tz });
+};
+
+const formatDateTime = (d) => {
+    if (!d) return "-";
+    const tz = getTimezone();
+    return d.toLocaleString("en-US", { timeZone: tz });
+};
+
+const formatTimeOnly = (d, includeSeconds = false) => {
+    if (!d) return "-";
+    const tz = getTimezone();
+    const options = {
+        timeZone: tz,
+        hour: '2-digit',
+        minute: '2-digit'
+    };
+    if (includeSeconds) {
+        options.second = '2-digit';
+    }
+    return d.toLocaleTimeString("en-US", options);
 };
 
 const shortenName = (name, maxLength = 15) => {
@@ -825,16 +921,22 @@ function renderActivityTimeChart() {
     // Group by hour or day depending on timeframe
     const timeframe = timeframeSelect.value;
     const byTime = {};
+    const tz = getTimezone();
 
-    rawGlobalData.forEach(r => {
-        if (!r.datetime) return;
-        let key;
-        if (timeframe === "day") {
-            key = r.datetime.getHours();
-        } else {
-            key = r.datetime.toISOString().split("T")[0];
-        }
-        byTime[key] = (byTime[key] || 0) + 1;
+    // Use filtered data (processedData) to respect date filter
+    processedData.forEach(u => {
+        u.records.forEach(r => {
+            if (!r.datetime) return;
+            let key;
+            if (timeframe === "day") {
+                // Get hour in selected timezone
+                key = parseInt(r.datetime.toLocaleString("en-US", { timeZone: tz, hour: 'numeric', hour12: false }));
+            } else {
+                // Get date in selected timezone
+                key = r.datetime.toLocaleDateString("en-CA", { timeZone: tz }); // en-CA gives YYYY-MM-DD format
+            }
+            byTime[key] = (byTime[key] || 0) + 1;
+        });
     });
 
     const labels = Object.keys(byTime).sort((a, b) => a - b);
@@ -1092,8 +1194,9 @@ function renderUserActivity(user) {
     document.getElementById("user-avg-followers").textContent = formatNumber(user.avgFollowers);
     document.getElementById("user-max-followers").textContent = formatNumber(user.maxFollowers);
 
-    // Consistency score (sessions per unique day)
-    const uniqueDays = new Set(user.records.map(r => r.datetime.toISOString().split("T")[0])).size;
+    // Consistency score (sessions per unique day) - timezone aware
+    const tz = getTimezone();
+    const uniqueDays = new Set(user.records.map(r => r.datetime.toLocaleDateString("en-CA", { timeZone: tz }))).size;
     const consistency = uniqueDays > 0 ? (user.sessionCount / uniqueDays).toFixed(1) : 0;
     document.getElementById("user-consistency").textContent = `${consistency} sessions/day`;
 
@@ -1145,9 +1248,10 @@ function renderSessionDetails(user) {
         const startDate = session.start instanceof Date ? session.start : new Date(session.start);
         const endDate = session.end instanceof Date ? session.end : new Date(session.end);
 
-        const dateStr = startDate.toLocaleDateString();
-        const startTime = startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        const endTime = endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        // Use timezone-aware formatting
+        const dateStr = formatDate(startDate);
+        const startTime = formatTimeOnly(startDate, true);
+        const endTime = formatTimeOnly(endDate, true);
         const duration = session.duration > 0 ? formatTime(session.duration) : "< 1 min";
 
         tr.innerHTML = `
@@ -1165,10 +1269,11 @@ function renderUserMinutesChart(user) {
     const ctx = document.getElementById("userMinutesChart");
     if (!ctx) return;
 
-    // Group by day
+    // Group by day (timezone-aware)
     const byDay = {};
+    const tz = getTimezone();
     user.records.forEach(r => {
-        const day = r.datetime.toISOString().split("T")[0];
+        const day = r.datetime.toLocaleDateString("en-CA", { timeZone: tz }); // YYYY-MM-DD
         byDay[day] = (byDay[day] || 0) + 1;
     });
 
@@ -1217,9 +1322,9 @@ function renderUserFollowersChart(user) {
     const ctx = document.getElementById("userFollowersChart");
     if (!ctx) return;
 
-    // Sort records by time and create labels/data arrays
+    // Sort records by time and create labels/data arrays (timezone-aware)
     const sortedRecords = [...user.records].sort((a, b) => a.datetime - b.datetime);
-    const labels = sortedRecords.map(r => r.datetime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    const labels = sortedRecords.map(r => formatTimeOnly(r.datetime));
     const data = sortedRecords.map(r => r.followers);
 
     if (charts.userFollowers) charts.userFollowers.destroy();
@@ -1354,17 +1459,22 @@ function renderHeatmap() {
     const ctx = document.getElementById("heatmapChart");
     if (!ctx) return;
 
-    // Activity by hour (6-23)
-    const hours = Array.from({ length: 18 }, (_, i) => i + 6);
+    // Activity by hour (0-23) in selected timezone
+    const hours = Array.from({ length: 24 }, (_, i) => i);
     const hourCounts = {};
     hours.forEach(h => hourCounts[h] = 0);
+    const tz = getTimezone();
 
-    rawGlobalData.forEach(r => {
-        if (!r.datetime) return;
-        const hour = r.datetime.getHours();
-        if (hour >= 6 && hour <= 23) {
-            hourCounts[hour]++;
-        }
+    // Use filtered data (processedData) to respect date filter
+    processedData.forEach(u => {
+        u.records.forEach(r => {
+            if (!r.datetime) return;
+            // Get hour in selected timezone
+            const hour = parseInt(r.datetime.toLocaleString("en-US", { timeZone: tz, hour: 'numeric', hour12: false }));
+            if (hour >= 0 && hour <= 23) {
+                hourCounts[hour]++;
+            }
+        });
     });
 
     if (charts.heatmap) charts.heatmap.destroy();
@@ -1408,30 +1518,35 @@ function renderReliabilityMatrix() {
     const container = document.getElementById("reliabilityMatrix");
     if (!container) return;
 
-    // Get unique days and top 10 users
+    // Get unique days and top 10 users (timezone-aware) - use filtered data
     const allDays = new Set();
-    rawGlobalData.forEach(r => {
-        if (r.datetime) {
-            allDays.add(r.datetime.toISOString().split("T")[0]);
-        }
+    const tz = getTimezone();
+    processedData.forEach(u => {
+        u.records.forEach(r => {
+            if (r.datetime) {
+                allDays.add(r.datetime.toLocaleDateString("en-CA", { timeZone: tz })); // YYYY-MM-DD format
+            }
+        });
     });
-    const days = [...allDays].sort().slice(-7); // Last 7 days
+    const days = [...allDays].sort().slice(-7); // Last 7 days from filtered data
     const topUsers = [...processedData].sort((a, b) => b.minutes - a.minutes).slice(0, 10);
 
-    // Build matrix data
+    // Build matrix data using filtered data
     const matrix = {};
     topUsers.forEach(u => {
         matrix[u.nickname] = {};
         days.forEach(d => matrix[u.nickname][d] = 0);
     });
 
-    rawGlobalData.forEach(r => {
-        if (!r.datetime) return;
-        const day = r.datetime.toISOString().split("T")[0];
-        const nick = r.nickname;
-        if (matrix[nick] && days.includes(day)) {
-            matrix[nick][day]++;
-        }
+    processedData.forEach(u => {
+        u.records.forEach(r => {
+            if (!r.datetime) return;
+            const day = r.datetime.toLocaleDateString("en-CA", { timeZone: tz });
+            const nick = u.nickname;
+            if (matrix[nick] && days.includes(day)) {
+                matrix[nick][day]++;
+            }
+        });
     });
 
     // Create table
@@ -1498,21 +1613,27 @@ function renderInsightsTab() {
     document.getElementById("insight-most-consistent").textContent =
         mostConsistent.user ? `${mostConsistent.user} (${mostConsistent.consistency} days)` : "N/A";
 
-    // Highest Activity Burst (most records in single hour)
+    // Highest Activity Burst (most records in single hour) - use filtered data
     const hourlyActivity = {};
-    rawGlobalData.forEach(r => {
-        if (!r.datetime) return;
-        const key = `${r.nickname}-${r.datetime.toISOString().slice(0, 13)}`;
-        hourlyActivity[key] = (hourlyActivity[key] || 0) + 1;
+    const tz = getTimezone();
+    processedData.forEach(u => {
+        u.records.forEach(r => {
+            if (!r.datetime) return;
+            // Use timezone-aware hour grouping
+            const dateStr = r.datetime.toLocaleDateString("en-CA", { timeZone: tz });
+            const hourStr = r.datetime.toLocaleString("en-US", { timeZone: tz, hour: "2-digit", hour12: false });
+            const key = `${u.nickname}-${dateStr}-${hourStr}`;
+            hourlyActivity[key] = (hourlyActivity[key] || 0) + 1;
+        });
     });
-    let maxBurst = { key: null, count: 0 };
+    let maxBurst = { user: null, count: 0 };
     Object.entries(hourlyActivity).forEach(([key, count]) => {
         if (count > maxBurst.count) {
-            maxBurst = { key, count };
+            maxBurst = { user: key.split("-")[0], count };
         }
     });
     document.getElementById("insight-activity-burst").textContent =
-        maxBurst.key ? `${maxBurst.key.split("-")[0]} (${maxBurst.count} pings/hr)` : "N/A";
+        maxBurst.user ? `${maxBurst.user} (${maxBurst.count} pings/hr)` : "N/A";
 
     // Opportunity Signals
     renderOpportunitySignals();
