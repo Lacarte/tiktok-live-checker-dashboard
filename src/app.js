@@ -44,11 +44,14 @@ let currentTab = "overview";
 let currentSort = { key: "score", order: "desc" };
 let autoRefreshInterval = null;
 let currentSelectedUser = null; // Track currently selected user in User Activity tab
-let previousOnlineVips = new Set(); // Track VIP users that were online in previous refresh
+let isInitialLoad = true; // Track if this is the first load (don't play sound on page load)
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 // VIP notification sound
 const vipNotificationSound = new Audio("assets/new-vip.wav");
+
+// LocalStorage key for tracking online VIPs
+const ONLINE_VIPS_KEY = "tiktok-analytics-online-vips";
 
 // Chart instances
 let charts = {
@@ -627,6 +630,28 @@ function updateMarksCountBadge() {
     }
 }
 
+// Get previously online VIPs from localStorage
+function getPreviousOnlineVips() {
+    try {
+        const stored = localStorage.getItem(ONLINE_VIPS_KEY);
+        if (stored) {
+            return new Set(JSON.parse(stored));
+        }
+    } catch (err) {
+        console.warn("Error reading online VIPs from localStorage:", err);
+    }
+    return new Set();
+}
+
+// Save current online VIPs to localStorage
+function saveOnlineVips(vipsSet) {
+    try {
+        localStorage.setItem(ONLINE_VIPS_KEY, JSON.stringify([...vipsSet]));
+    } catch (err) {
+        console.warn("Error saving online VIPs to localStorage:", err);
+    }
+}
+
 // Check for new VIP users coming online and play notification sound
 function checkForNewOnlineVips(nowOnline) {
     const marks = getUserMarks();
@@ -640,6 +665,9 @@ function checkForNewOnlineVips(nowOnline) {
         }
     });
 
+    // Get previous online VIPs from localStorage
+    const previousOnlineVips = getPreviousOnlineVips();
+
     // Find new VIP users (online now but weren't before)
     const newVips = [];
     currentOnlineVips.forEach(nickname => {
@@ -648,15 +676,19 @@ function checkForNewOnlineVips(nowOnline) {
         }
     });
 
-    // Play sound if there are new VIP users online
-    if (newVips.length > 0 && previousOnlineVips.size > 0) {
-        // Only play sound after initial load (previousOnlineVips.size > 0)
+    // Play sound if there are new VIP users online (but not on initial page load)
+    if (newVips.length > 0 && !isInitialLoad) {
         console.log("New VIP user(s) online:", newVips.join(", "));
         playVipNotificationSound();
     }
 
-    // Update the previous set for next comparison
-    previousOnlineVips = currentOnlineVips;
+    // Save current state to localStorage for next comparison
+    saveOnlineVips(currentOnlineVips);
+
+    // Mark initial load as complete
+    if (isInitialLoad) {
+        isInitialLoad = false;
+    }
 }
 
 // Play the VIP notification sound
