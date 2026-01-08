@@ -1414,6 +1414,15 @@ td a:hover {
   margin-left: 0.5rem;
 }
 
+.panel-header .count-badge {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  min-width: auto;
+  height: auto;
+  padding: 0.1rem 0.4rem;
+}
+
 .clear-all-btn {
   background: transparent;
   border: 1px solid var(--danger);

@@ -602,6 +602,12 @@ function renderLiveStatus() {
     // Clean up expired new VIP highlights before rendering
     cleanupExpiredNewVips();
 
+    // Update count badges
+    const nowOnlineCountEl = document.getElementById("now-online-count");
+    const ghostCountEl = document.getElementById("ghost-count");
+    if (nowOnlineCountEl) nowOnlineCountEl.textContent = nowOnline.length;
+    if (ghostCountEl) ghostCountEl.textContent = ghosts.length;
+
     // Render Now Online
     const nowOnlineList = document.getElementById("now-online-list");
     if (nowOnlineList) {
@@ -1135,7 +1141,14 @@ function renderTopScoreChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => `Score: ${Math.round(ctx.raw).toLocaleString()}`
+                    }
+                }
+            },
             scales: {
                 y: {
                     beginAtZero: true,
