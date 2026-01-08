@@ -1152,7 +1152,7 @@ function renderTopScoreChart() {
 }
 
 // Store activity data for click handling
-let activityChartData = { byTime: {}, usersByTime: {}, timeframe: "day" };
+let activityChartData = { usersByTime: {}, timeframe: "day" };
 
 function renderActivityTimeChart() {
     const ctx = document.getElementById("activityTimeChart");
@@ -1160,7 +1160,6 @@ function renderActivityTimeChart() {
 
     // Group by hour or day depending on timeframe
     const timeframe = timeframeSelect.value;
-    const byTime = {};
     const usersByTime = {}; // Track which users are active at each time
     const tz = getTimezone();
 
@@ -1176,7 +1175,6 @@ function renderActivityTimeChart() {
                 // Get date in selected timezone
                 key = r.datetime.toLocaleDateString("en-CA", { timeZone: tz }); // en-CA gives YYYY-MM-DD format
             }
-            byTime[key] = (byTime[key] || 0) + 1;
 
             // Track users at this time (use Set to avoid duplicates)
             if (!usersByTime[key]) {
@@ -1187,10 +1185,11 @@ function renderActivityTimeChart() {
     });
 
     // Store for click handling
-    activityChartData = { byTime, usersByTime, timeframe };
+    activityChartData = { usersByTime, timeframe };
 
-    const labels = Object.keys(byTime).sort((a, b) => a - b);
-    const data = labels.map(k => byTime[k]);
+    const labels = Object.keys(usersByTime).sort((a, b) => a - b);
+    // Use unique user count instead of record count
+    const data = labels.map(k => usersByTime[k].size);
 
     if (charts.activityTime) charts.activityTime.destroy();
 
@@ -1199,7 +1198,7 @@ function renderActivityTimeChart() {
         data: {
             labels: timeframe === "day" ? labels.map(h => `${h}:00`) : labels,
             datasets: [{
-                label: "Activity (Records)",
+                label: "Active Users",
                 data: data,
                 borderColor: chartColors.success,
                 backgroundColor: chartColors.successGlow,
@@ -1241,7 +1240,7 @@ function showActivityUsers(label, index) {
     const { usersByTime, timeframe } = activityChartData;
 
     // Get the original key (hour number or date string)
-    const sortedKeys = Object.keys(activityChartData.byTime).sort((a, b) => a - b);
+    const sortedKeys = Object.keys(usersByTime).sort((a, b) => a - b);
     const key = sortedKeys[index];
 
     if (!key || !usersByTime[key]) return;
