@@ -173,12 +173,28 @@
           </div>
         </div>
         <div class="card chart-card">
-          <div class="section-title">Activity Over Time</div>
+          <div class="section-title">Activity Over Time <span class="chart-hint">(click to see users)</span></div>
           <div class="chart-wrapper">
             <canvas id="activityTimeChart"></canvas>
           </div>
         </div>
       </section>
+
+      <!-- Activity Users Modal -->
+      <div id="activityUsersModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 id="activityModalTitle">Users Active at -</h3>
+            <button class="modal-close-btn" id="closeActivityModal">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="activity-users-stats">
+              <span id="activityUserCount">0 users</span>
+            </div>
+            <ul id="activity-users-list" class="marks-list"></ul>
+          </div>
+        </div>
+      </div>
 
       <!-- Top 5 Highlight Panels -->
       <section class="highlights-grid">

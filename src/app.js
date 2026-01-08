@@ -1151,6 +1151,9 @@ function renderTopScoreChart() {
     });
 }
 
+// Store activity data for click handling
+let activityChartData = { byTime: {}, usersByTime: {}, timeframe: "day" };
+
 function renderActivityTimeChart() {
     const ctx = document.getElementById("activityTimeChart");
     if (!ctx) return;
@@ -1158,6 +1161,7 @@ function renderActivityTimeChart() {
     // Group by hour or day depending on timeframe
     const timeframe = timeframeSelect.value;
     const byTime = {};
+    const usersByTime = {}; // Track which users are active at each time
     const tz = getTimezone();
 
     // Use filtered data (processedData) to respect date filter
@@ -1173,8 +1177,17 @@ function renderActivityTimeChart() {
                 key = r.datetime.toLocaleDateString("en-CA", { timeZone: tz }); // en-CA gives YYYY-MM-DD format
             }
             byTime[key] = (byTime[key] || 0) + 1;
+
+            // Track users at this time (use Set to avoid duplicates)
+            if (!usersByTime[key]) {
+                usersByTime[key] = new Set();
+            }
+            usersByTime[key].add(u.nickname);
         });
     });
+
+    // Store for click handling
+    activityChartData = { byTime, usersByTime, timeframe };
 
     const labels = Object.keys(byTime).sort((a, b) => a - b);
     const data = labels.map(k => byTime[k]);
@@ -1212,7 +1225,95 @@ function renderActivityTimeChart() {
                     grid: { color: chartColors.grid },
                     ticks: { color: chartColors.text }
                 }
+            },
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const index = elements[0].index;
+                    const label = charts.activityTime.data.labels[index];
+                    showActivityUsers(label, index);
+                }
             }
+        }
+    });
+}
+
+function showActivityUsers(label, index) {
+    const { usersByTime, timeframe } = activityChartData;
+
+    // Get the original key (hour number or date string)
+    const sortedKeys = Object.keys(activityChartData.byTime).sort((a, b) => a - b);
+    const key = sortedKeys[index];
+
+    if (!key || !usersByTime[key]) return;
+
+    const userNicknames = [...usersByTime[key]];
+    const users = userNicknames.map(nickname => processedData.find(u => u.nickname === nickname)).filter(Boolean);
+
+    // Sort by followers (highest first)
+    users.sort((a, b) => b.avgFollowers - a.avgFollowers);
+
+    // Update modal title
+    const modalTitle = document.getElementById("activityModalTitle");
+    if (modalTitle) {
+        if (timeframe === "day") {
+            modalTitle.textContent = `Users Active at ${label}`;
+        } else {
+            modalTitle.textContent = `Users Active on ${label}`;
+        }
+    }
+
+    // Update user count
+    const userCount = document.getElementById("activityUserCount");
+    if (userCount) {
+        userCount.textContent = `${users.length} user${users.length !== 1 ? 's' : ''}`;
+    }
+
+    // Render user list
+    const userList = document.getElementById("activity-users-list");
+    if (userList) {
+        userList.innerHTML = "";
+
+        if (users.length === 0) {
+            userList.innerHTML = '<li class="empty-state">No users found</li>';
+        } else {
+            users.forEach(user => {
+                const li = document.createElement("li");
+                const isVip = isUserMarked(user.nickname, "vip");
+                const displayNickname = user.displayNickname || user.nickname;
+
+                li.innerHTML = `
+                    <span>
+                        ${isVip ? '<span class="vip-badge" title="VIP">👁️</span> ' : ''}
+                        <a href="${user.link || '#'}" target="_blank" class="user-link" title="${user.nickname} | ${displayNickname}">${user.nickname}</a>
+                    </span>
+                    <span class="user-followers">${formatNumber(user.avgFollowers)} followers</span>
+                `;
+                userList.appendChild(li);
+            });
+        }
+    }
+
+    // Show modal
+    const modal = document.getElementById("activityUsersModal");
+    if (modal) {
+        modal.style.display = "flex";
+    }
+}
+
+// Activity Users Modal controls
+const activityUsersModal = document.getElementById("activityUsersModal");
+const closeActivityModal = document.getElementById("closeActivityModal");
+
+if (closeActivityModal) {
+    closeActivityModal.addEventListener("click", () => {
+        activityUsersModal.style.display = "none";
+    });
+}
+
+if (activityUsersModal) {
+    activityUsersModal.addEventListener("click", (e) => {
+        if (e.target === activityUsersModal) {
+            activityUsersModal.style.display = "none";
         }
     });
 }

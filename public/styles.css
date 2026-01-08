@@ -436,6 +436,17 @@ button.primary-btn:disabled {
   position: relative;
 }
 
+.chart-wrapper canvas {
+  cursor: pointer;
+}
+
+.chart-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: normal;
+  margin-left: 0.5rem;
+}
+
 .chart-card-full {
   min-height: 350px;
 }
@@ -443,6 +454,51 @@ button.primary-btn:disabled {
 .chart-wrapper-full {
   height: 280px;
   position: relative;
+}
+
+/* Activity Users Modal */
+.activity-users-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+#activity-users-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+#activity-users-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+#activity-users-list li:last-child {
+  border-bottom: none;
+}
+
+#activity-users-list .user-link {
+  color: var(--text-primary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+#activity-users-list .user-link:hover {
+  color: var(--accent);
+}
+
+#activity-users-list .user-followers {
+  color: var(--cyan);
+  font-size: 0.85rem;
 }
 
 /* ==================== HIGHLIGHT PANELS ==================== */
