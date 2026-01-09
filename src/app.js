@@ -46,6 +46,7 @@ let autoRefreshInterval = null;
 let currentSelectedUser = null; // Track currently selected user in User Activity tab
 let isInitialLoad = true; // Track if this is the first load (don't play sound on page load)
 let isManualVipChange = false; // Track if VIP list was just manually changed (don't play sound)
+let previousRecordCount = 0; // Track previous record count for showing new records
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 // VIP notification sound
@@ -142,7 +143,27 @@ const loadData = async () => {
     try {
         rawGlobalData = await fetchSheetData();
         lastUpdatedEl.textContent = `Updated: ${new Date().toLocaleTimeString()}`;
-        totalRecordsEl.textContent = `Records: ${rawGlobalData.length}`;
+
+        // Calculate new records since last update
+        const currentCount = rawGlobalData.length;
+        const newRecords = currentCount - previousRecordCount;
+
+        if (previousRecordCount === 0) {
+            // First load - just show total
+            totalRecordsEl.textContent = `Records: ${currentCount}`;
+        } else if (newRecords > 0) {
+            // Show new records count
+            totalRecordsEl.textContent = `Records: ${currentCount} (+${newRecords} new)`;
+        } else if (newRecords < 0) {
+            // Records decreased (data cleanup?)
+            totalRecordsEl.textContent = `Records: ${currentCount} (${newRecords})`;
+        } else {
+            // No change
+            totalRecordsEl.textContent = `Records: ${currentCount} (no change)`;
+        }
+
+        // Update previous count for next comparison
+        previousRecordCount = currentCount;
 
         applyFilterAndRender();
     } catch (err) {
