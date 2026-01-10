@@ -48,6 +48,41 @@ export async function fetchSheetData() {
   return processRows(rawRows);
 }
 
+// Parse follower counts that may be formatted like "1.7K" or "1.0M"
+function parseFollowerCount(value) {
+  if (value === null || value === undefined || value === "") return 0;
+
+  // If already a number, return it
+  if (typeof value === "number") return value;
+
+  // Convert to string and trim
+  const str = String(value).trim().toUpperCase();
+
+  // Try parsing as plain number first
+  const plainNum = Number(str);
+  if (!isNaN(plainNum)) return plainNum;
+
+  // Handle K (thousands) suffix
+  if (str.endsWith("K")) {
+    const num = parseFloat(str.slice(0, -1));
+    if (!isNaN(num)) return Math.round(num * 1000);
+  }
+
+  // Handle M (millions) suffix
+  if (str.endsWith("M")) {
+    const num = parseFloat(str.slice(0, -1));
+    if (!isNaN(num)) return Math.round(num * 1000000);
+  }
+
+  // Handle B (billions) suffix
+  if (str.endsWith("B")) {
+    const num = parseFloat(str.slice(0, -1));
+    if (!isNaN(num)) return Math.round(num * 1000000000);
+  }
+
+  return 0;
+}
+
 function processRows(rows) {
   return rows.map(r => {
     // Column Structure:
@@ -98,7 +133,7 @@ function processRows(rows) {
     return {
       nickname: username, // Username (from URL) for internal tracking/reliability
       displayNickname: displayNickname, // Original display name for tooltip
-      followers: Number(r[1]),
+      followers: parseFollowerCount(r[1]),
       link: link, // Keep original link
       datetime: datetime
     };
