@@ -32,6 +32,7 @@ const timeframeSelect = document.getElementById("timeframeSelect");
 const pageTitle = document.getElementById("pageTitle");
 const lastUpdatedEl = document.getElementById("lastUpdated");
 const totalRecordsEl = document.getElementById("totalRecords");
+const latestDataTimeEl = document.getElementById("latestDataTime");
 
 // Tab Navigation
 const navItems = document.querySelectorAll(".nav-item");
@@ -164,6 +165,21 @@ const loadData = async () => {
 
         // Update previous count for next comparison
         previousRecordCount = currentCount;
+
+        // Find and display the latest datetime from the data
+        if (latestDataTimeEl && rawGlobalData.length > 0) {
+            const latestRecord = rawGlobalData.reduce((latest, record) => {
+                if (!record.datetime) return latest;
+                if (!latest || record.datetime > latest.datetime) return record;
+                return latest;
+            }, null);
+
+            if (latestRecord && latestRecord.datetime) {
+                latestDataTimeEl.textContent = `Latest data: ${formatDateTime(latestRecord.datetime)}`;
+            } else {
+                latestDataTimeEl.textContent = `Latest data: -`;
+            }
+        }
 
         applyFilterAndRender();
     } catch (err) {
