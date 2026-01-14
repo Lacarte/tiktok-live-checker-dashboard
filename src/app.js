@@ -176,8 +176,17 @@ const loadData = async () => {
 
             if (latestRecord && latestRecord.datetime) {
                 latestDataTimeEl.textContent = `Latest data: ${formatDateTime(latestRecord.datetime)}`;
+                // Check if data is more than 1 hour old and add blinking warning
+                const now = new Date();
+                const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+                if (latestRecord.datetime < oneHourAgo) {
+                    latestDataTimeEl.classList.add('data-stale');
+                } else {
+                    latestDataTimeEl.classList.remove('data-stale');
+                }
             } else {
                 latestDataTimeEl.textContent = `Latest data: -`;
+                latestDataTimeEl.classList.remove('data-stale');
             }
         }
 

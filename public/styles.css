@@ -275,6 +275,23 @@ button.primary-btn:disabled {
   color: var(--text-muted);
 }
 
+/* Stale Data Warning - blinks red when data is more than 1 hour old */
+.data-stale {
+  color: var(--danger) !important;
+  animation: staleDataBlink 1s ease-in-out infinite;
+}
+
+@keyframes staleDataBlink {
+  0%, 100% {
+    color: var(--danger);
+    text-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
+  }
+  50% {
+    color: #ff6b6b;
+    text-shadow: 0 0 12px rgba(239, 68, 68, 1);
+  }
+}
+
 /* ==================== MAIN CONTENT ==================== */
 .main-content {
   flex: 1;
