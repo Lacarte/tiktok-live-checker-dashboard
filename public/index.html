@@ -23,6 +23,7 @@
       <div class="nav-item" data-tab="user-activity">User Activity</div>
       <div class="nav-item" data-tab="sessions">Sessions & Time</div>
       <div class="nav-item" data-tab="insights">Insights</div>
+      <div class="nav-item" data-tab="list-analyzer">List Analyzer</div>
     </nav>
     <button id="refresh" class="primary-btn">Refresh Data</button>
     <div class="auto-refresh-toggle">
@@ -434,6 +435,71 @@
         <div class="section-title">Anomaly Detection</div>
         <div id="anomalies-list" class="anomalies-container">
           <p class="text-muted">Analyzing data for anomalies...</p>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ==================== TAB 6: LIST ANALYZER ==================== -->
+    <div id="tab-list-analyzer" class="tab-content">
+
+      <!-- Upload Section -->
+      <section class="card list-analyzer-upload">
+        <div class="section-title">📋 User List Analyzer</div>
+        <p class="text-muted">Upload a JSON array of usernames to analyze their connection history</p>
+        <div class="upload-controls">
+          <input type="file" id="listAnalyzerFile" accept=".json" style="display: none;">
+          <button id="uploadListBtn" class="primary-btn">Upload JSON File</button>
+          <span id="uploadedFileName" class="text-muted"></span>
+        </div>
+      </section>
+
+      <!-- Results Section (hidden until analysis) -->
+      <section id="listAnalyzerResults" class="card" style="display: none;">
+        <div class="analyzer-header">
+          <div class="section-title">Analysis Results</div>
+          <div class="analyzer-actions">
+            <button id="downloadFullInfo" class="secondary-btn small">Download Full Info</button>
+            <button id="downloadSimpleList" class="secondary-btn small">Download Simple List</button>
+            <button id="clearAnalyzerList" class="secondary-btn small danger">Clear List</button>
+          </div>
+        </div>
+        <div class="analyzer-stats">
+          <div class="analyzer-stat">
+            <span class="stat-label">Total Users</span>
+            <span class="stat-value" id="analyzer-total">0</span>
+          </div>
+          <div class="analyzer-stat">
+            <span class="stat-label">Never Connected</span>
+            <span class="stat-value danger" id="analyzer-never">0</span>
+          </div>
+          <div class="analyzer-stat">
+            <span class="stat-label">Connected Before</span>
+            <span class="stat-value success" id="analyzer-connected">0</span>
+          </div>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="analyzer-filters">
+          <button class="filter-btn active" data-filter="all">All</button>
+          <button class="filter-btn" data-filter="never">Never Connected</button>
+          <button class="filter-btn" data-filter="connected">Connected</button>
+        </div>
+
+        <!-- Results Table -->
+        <div class="analyzer-table-container">
+          <table class="analyzer-table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Status</th>
+                <th>Last Connected</th>
+                <th>Time Ago</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="analyzerTableBody"></tbody>
+          </table>
         </div>
       </section>
 

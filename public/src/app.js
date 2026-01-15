@@ -1,6 +1,7 @@
 import { fetchSheetData } from "./sheetService.js";
 import { computeSessions, computeSessionsList } from "./sessions.js";
 import { computeScore } from "./metrics.js";
+import { initListAnalyzer, refreshAnalyzerData } from "./listAnalyzer.js";
 
 // ==================== CHART.JS DARK THEME CONFIG ====================
 Chart.defaults.color = '#94a3b8';
@@ -191,6 +192,9 @@ const loadData = async () => {
         }
 
         applyFilterAndRender();
+
+        // Refresh list analyzer with new data
+        refreshAnalyzerData(() => rawGlobalData, getTimezone);
     } catch (err) {
         console.error(err);
         alert("Error loading data.");
@@ -2180,6 +2184,9 @@ if (autoRefreshToggle) {
         }
     });
 }
+
+// ==================== LIST ANALYZER INIT ====================
+initListAnalyzer(() => rawGlobalData, getTimezone);
 
 // ==================== AUTO LOAD ====================
 loadData();
