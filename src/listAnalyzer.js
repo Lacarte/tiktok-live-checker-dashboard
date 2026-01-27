@@ -1,6 +1,8 @@
 // ==================== LIST ANALYZER MODULE ====================
 // Analyzes uploaded JSON arrays of usernames against connection data
 
+import { computeSessions, computeSessionsList } from "./sessions.js";
+
 const LIST_ANALYZER_STORAGE_KEY = "tiktok-analytics-list-analyzer";
 
 // State
@@ -163,7 +165,10 @@ function analyzeUsernames(usernames, rawData) {
                 status: "never",
                 lastConnected: null,
                 lastConnectedDate: null,
-                connectionCount: 0
+                connectionCount: 0,
+                totalMinutes: 0,
+                sessionCount: 0,
+                avgMinutes: 0
             };
         }
 
@@ -175,14 +180,34 @@ function analyzeUsernames(usernames, rawData) {
             }
         });
 
+        // Compute sessions and total connected minutes
+        const totalMinutes = computeSessions(records);
+        const sessions = computeSessionsList(records);
+        const sessionCount = sessions.length;
+        const avgMinutes = sessionCount > 0 ? totalMinutes / sessionCount : 0;
+
         return {
             username: username.trim(),
             status: "connected",
             lastConnected: lastRecord.datetime,
             lastConnectedDate: lastRecord.datetime ? lastRecord.datetime.toISOString() : null,
-            connectionCount: records.length
+            connectionCount: records.length,
+            totalMinutes: Math.round(totalMinutes * 10) / 10,
+            sessionCount,
+            avgMinutes: Math.round(avgMinutes * 10) / 10
         };
     });
+}
+
+/**
+ * Format minutes into a readable string (e.g. "2h 15m" or "45m")
+ */
+function formatMinutes(minutes) {
+    if (minutes < 1) return "<1m";
+    const h = Math.floor(minutes / 60);
+    const m = Math.round(minutes % 60);
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
 }
 
 /**
@@ -265,7 +290,7 @@ function renderTable(getTimezoneFn) {
         return dateB - dateA;
     });
 
-    analyzerTableBody.innerHTML = filteredData.map((user, index) => {
+    analyzerTableBody.innerHTML = filteredData.map(user => {
         const timeAgo = user.lastConnected ? getTimeAgo(new Date(user.lastConnected)) : { text: "-", staleLevel: "" };
         const lastConnectedStr = user.lastConnected
             ? new Date(user.lastConnected).toLocaleString("en-US", { timeZone: tz })
@@ -285,6 +310,9 @@ function renderTable(getTimezoneFn) {
                         ${user.status === "never" ? "Never Connected" : "Connected"}
                     </span>
                 </td>
+                <td>${user.sessionCount || "-"}</td>
+                <td>${user.totalMinutes ? formatMinutes(user.totalMinutes) : "-"}</td>
+                <td>${user.avgMinutes ? formatMinutes(user.avgMinutes) : "-"}</td>
                 <td>${lastConnectedStr}</td>
                 <td class="${timeAgoClass}">${timeAgo.text}</td>
                 <td>
@@ -342,6 +370,9 @@ function downloadFullInfo(getTimezoneFn) {
         return {
             username: user.username,
             status: user.status,
+            sessions: user.sessionCount,
+            totalMinutes: user.totalMinutes,
+            avgMinutesPerSession: user.avgMinutes,
             lastConnected: user.lastConnected
                 ? new Date(user.lastConnected).toLocaleString("en-US", { timeZone: tz })
                 : null,
