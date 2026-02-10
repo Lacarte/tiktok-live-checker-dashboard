@@ -30,6 +30,6 @@ Because we are using a simple API Key (not OAuth login), the sheet must be reada
 Open `src/sheetService.js` and paste your values:
 ```javascript
 const SHEET_ID = "PASTE_YOUR_SHEET_ID_HERE";
-const RANGE = "Sheet1!A:D"; // Make sure your tab is named 'Sheet1'
+const RANGE = "live_checker!A:D"; // Make sure your tab is named 'live_checker'
 const API_KEY = "PASTE_YOUR_API_KEY_HERE";
 ```

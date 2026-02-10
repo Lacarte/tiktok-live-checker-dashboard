@@ -1,5 +1,5 @@
 const SHEET_ID = "1WkRvSCdwlLFs16EdBVVANjh9sG_wuCP8eJiVkMOd5RM";
-const RANGE = "Sheet1!A:D";
+const RANGE = "live_checker!A:D";
 const API_KEY = "AIzaSyCmczFnl6hG0VNBOyeeKBD_RNqgUOPEr0U";
 
 export async function fetchSheetData() {
